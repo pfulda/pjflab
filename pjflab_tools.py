@@ -1,5 +1,7 @@
 # Python module for doing various useful lab-related things in python
 
+#check
+
 import pylab as pl
 import scipy.optimize
 import numpy as np
@@ -156,21 +158,25 @@ def fit_beam_profile(z_data, w_data, w0guess, z0guess, lam=1064e-9, show_plot=1,
     All data and fit guess inputs should be in meters. Beam sizes must be radii, not diameter.
     """
     
+    # defining the sub-function that describes the theoretical propagation of a Gaussian beam
     def zw0z02w(z, w0, z0, lam):
         z_R = np.pi*w0**2/lam
         w = w0*np.sqrt(1+((z-z0)/z_R)**2)
         return w
     
+    # run optimization procedure, fitting the waist size and location to give best match between data and theory
     popt,pcov = scipy.optimize.curve_fit(lambda z_data, w0, z0: zw0z02w(z_data, w0, z0, lam), z_data, w_data, p0=[w0guess,z0guess])
+
+    # set function outputs equal to the results of the fit
     w0out=popt[0]
     z0out=popt[1]
     
-    z_fit = np.linspace(min(z_data),max(z_data),plotpts)
-    w_fit = zw0z02w(z_fit, w0out, z0out, lam)
-
-
+    # if plot is requested, plot it with defaults or options as requested in function inputs.
     if show_plot == 1:
         import pylab as pl
+        z_fit = np.linspace(min(z_data),max(z_data),plotpts)
+        w_fit = zw0z02w(z_fit, w0out, z0out, lam)
+
         um=1e6
         pl.figure()
         pl.plot(z_data,w_data*um,'bo', label = 'Data')
@@ -186,5 +192,6 @@ def fit_beam_profile(z_data, w_data, w0guess, z0guess, lam=1064e-9, show_plot=1,
         pl.title(title)
         if saveplot:
             pl.savefig(filename)
-            
+     
+    # return fit results       
     return w0out, z0out        
