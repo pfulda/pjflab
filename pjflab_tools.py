@@ -40,16 +40,16 @@ def read_HPNA_ascii(filename):
     # initialize the list containing data and metadate that will be returned from the function 
     all_data = []
 
-    print "Reading data from HPNA ascii file "+filename+"\n"
+    print("Reading data from HPNA ascii file "+filename+"\n")
 
     # open the ascii file
     f = open(filename,'r')
 
     # read top level headers
     analyzer_type = f.readline()
-    print "Instrument model: "+analyzer_type[1:len(analyzer_type)-3]
+    print("Instrument model: "+analyzer_type[1:len(analyzer_type)-3])
     date = f.readline()
-    print "Data was taken on"+date[6:len(date)-3]+"\n"
+    print("Data was taken on"+date[6:len(date)-3]+"\n")
 
     # chug through some blank lines
     for m in range(0,3):
@@ -68,7 +68,7 @@ def read_HPNA_ascii(filename):
     if not f.readline():
         nchannels=1
         all_data.append(NAdata1)
-        print 'End of file \n'
+        print('End of file \n')
 
     # if there is another channel, read this and return both channels' data and metadata in a list
     else:
@@ -78,7 +78,7 @@ def read_HPNA_ascii(filename):
         all_data.append(NAdata2)
         
     results_str="Returning a list of %d data objects corresponding to %d channels in file %s\n" % (nchannels, nchannels, filename)
-    print results_str
+    print(results_str)
     return all_data
 
 # A subfunction of readHPNAascii which actually does the reading from the file for each of up to 2 channels in a file
@@ -96,31 +96,31 @@ def fill_NAdata_struct(f):
     
     # read through segment of text file, setting metadata properties of NAdata_struc instance
     NAdata.channel = f.readline()
-    print "Channel number = "+NAdata.channel 
+    print("Channel number = "+NAdata.channel)
     
     meastype_str = f.readline()
     NAdata.measure_type = "\""+meastype_str[15:len(meastype_str)-1]
-    print '\tMeasurement type = '+NAdata.measure_type
+    print('\tMeasurement type = '+NAdata.measure_type)
 
     ydataunits_str = f.readline()
     NAdata.ydata_units = "\""+ydataunits_str[14:len(ydataunits_str)-1]
-    print '\tData units are '+NAdata.ydata_units
+    print('\tData units are '+NAdata.ydata_units)
 
     npoints_str = f.readline()
     NAdata.npoints = int(npoints_str[19:len(npoints_str)-3])
-    print "\tNumber of yaxis points = "+str(NAdata.npoints)
+    print("\tNumber of yaxis points = "+str(NAdata.npoints))
 
     sweep_time_str = f.readline()
     NAdata.sweep_time = float(sweep_time_str[13:len(sweep_time_str)-5])
-    print '\tSweep time is '+str(NAdata.sweep_time)
+    print('\tSweep time is '+str(NAdata.sweep_time))
 
     sweep_type_str = f.readline()
     NAdata.sweep_type = "\""+sweep_type_str[13:len(sweep_type_str)-1]
-    print '\tSweep type is '+NAdata.sweep_type
+    print('\tSweep type is '+NAdata.sweep_type)
     
     source_pow_str = f.readline()
     NAdata.source_pow = "\""+source_pow_str[16:len(source_pow_str)-1]
-    print '\tSource power is '+NAdata.source_pow
+    print('\tSource power is '+NAdata.source_pow)
 
     IFBW_str = f.readline()
     IFBWwords = [w for w in re.split('\W', IFBW_str) if w]
@@ -132,7 +132,7 @@ def fill_NAdata_struct(f):
         NAdata.IFBW = IFBWnum*1000
     elif IFBWunits == 'MHz':
         NAdata.IFBW = IFBWnum*1e6
-    print "\tIF BW is "+str(NAdata.IFBW)+"Hz\n"
+    print("\tIF BW is "+str(NAdata.IFBW)+"Hz\n")
     f.readline()
 
     # Find column headers of all columns present
