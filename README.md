@@ -5,4 +5,5 @@ Examples for using the module are found, unsurprisingly in the examples director
 All these examples are currently ipython notebooks.
 
 #git hub test 10-31-19 CCP Happy Halloween
+#git hub test a few moments later... on windows
 
