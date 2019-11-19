@@ -11,7 +11,7 @@
 
 # ADDING BITS SLOWLY TO ORIGINAL tRIGGER.PY SPINNAKER EXAMPLE
 # DOUBLE POUND (##) IS COMMENTED OUT ORIGINAL CODE
-
+#hey from GIT
 import os
 import PySpin
 import numpy
@@ -21,7 +21,8 @@ from PIL import Image
 from numpy import array, empty, ravel, where, ones, reshape, arctan2
 from matplotlib.pyplot import plot, draw, show, ion
 
-NUM_IMAGES = 9000  # number of images to grab
+
+NUM_IMAGES = 400  # number of images to grab
 #eventually change this to an input value 
 
 
@@ -115,7 +116,52 @@ def configure_trigger(cam):
         return False
 
     return result
+	
+def Avg(picMatrix, NUM): #ahh this wont work for phase maps as they are just saved as plots
+    result = 2
+    c = 0
+    avgMat = numpy.empty(388800) #this is the number of pixels in the camera
+	
+		#do we want to threshold anything or take the average of all the pixels?
+    for i in range(NUM):
+        if i % 4 == 0 and i > 0:
+            c+=1
+            arr1 = numpy.ravel(numpy.array(picMatrix[i-3],dtype='int'))
+            arr2 = numpy.ravel(numpy.array(picMatrix[i-2],dtype='int')) #converts to numpy arrays for faster operation
+            arr3 = numpy.ravel(numpy.array(picMatrix[i-1],dtype='int'))
+            arr4 = numpy.ravel(numpy.array(picMatrix[i],dtype='int'))
 
+            phase = numpy.empty(388800)
+
+            mask = numpy.ones(388800,dtype=bool)
+
+            cuts = numpy.where(arr1 < 15)
+
+            mask[cuts] = False
+
+            p1 = arr1[mask]
+            p2 = arr2[mask]
+            p3 = arr3[mask]
+            p4 = arr4[mask]
+
+            #num = p4 - p2
+            num = arr4 - arr2
+            #den = p1 - p3
+            den = arr1 - arr3
+            phase = numpy.arctan2(num,den)
+
+            #phase[~mask] = 0
+            #phase[mask] = pha
+            
+            #avgMat += phase/(4 * NUM_IMAGES)
+            avgMat += phase
+    
+    avgMat = avgMat / c	
+    avgMat = numpy.reshape(avgMat,(540,720))
+	
+    
+		
+    return avgMat #so this is probably going to be really cluncky. (reshape, threshold could help)
 
 def grab_next_image_by_trigger(nodemap, cam):  #is this necessary if we don't have a software trigger???
     """
@@ -162,6 +208,39 @@ def grab_next_image_by_trigger(nodemap, cam):  #is this necessary if we don't ha
         return False
 
     return result
+
+def Novak_phase_no_mask(listo):
+    #phase of each pixel, assuming: list of five images read in, equally centered and sized
+    arr1 = numpy.ravel(numpy.array(listo[0],dtype='int'))
+    arr2 = numpy.ravel(numpy.array(listo[1],dtype='int')) #converts to numpy arrays for faster operation
+    arr3 = numpy.ravel(numpy.array(listo[2],dtype='int'))
+    arr4 = numpy.ravel(numpy.array(listo[3],dtype='int'))
+    arr5 = numpy.ravel(numpy.array(listo[4],dtype='int'))
+    phase = numpy.empty(388800)
+
+    p1 = arr1
+    p2 = arr2
+    p3 = arr3
+    p4 = arr4
+    p5 = arr5	
+
+    den = 2*p3-p1-p5
+
+    A = p2-p4
+
+    B = p1-p5+10
+
+    num = numpy.sqrt(abs(4*A**2-B**2))
+
+    pm = numpy.sign(A)
+
+    pha = numpy.arctan2(pm*num,den)
+	
+    phase = pha
+
+    phase = numpy.reshape(phase,(540,720))
+
+    return phase
 
 def Novak_phase(listo):
     #phase of each pixel, assuming: list of five images read in, equally centered and sized
@@ -234,6 +313,41 @@ def fourpointphase(listo):
 
     return phase	
 	
+def carre_phase(listo):
+    #phase of each pixel, assuming: list of four images read in, equally centered and sized
+    arr1 = numpy.ravel(numpy.array(listo[0],dtype='int'))
+    arr2 = numpy.ravel(numpy.array(listo[1],dtype='int')) #converts to numpy arrays for faster operation
+    arr3 = numpy.ravel(numpy.array(listo[2],dtype='int'))
+    arr4 = numpy.ravel(numpy.array(listo[3],dtype='int'))
+
+    phase = numpy.empty(388800)
+
+    mask = numpy.ones(388800,dtype=bool)
+
+    cuts = numpy.where(arr1 < 15)
+
+    mask[cuts] = False
+
+    p1 = arr1[mask]
+    p2 = arr2[mask]
+    p3 = arr3[mask]
+    p4 = arr4[mask]
+		
+    B = p1-p4
+    A = p2-p3 
+    num = (A+B) * (3*A-B)
+    num = numpy.sqrt(abs(num))
+    pm = numpy.sign(A)
+    den = p2 + p3 - p1 - p4 
+    pha = numpy.arctan2(pm*num,den)
+
+    phase[~mask] = 0
+    phase[mask] = pha
+
+    phase = numpy.reshape(phase,(540,720))
+
+    return phase
+	
 def acquire_images(cam, nodemap, nodemap_tldevice):
     """
     This function acquires and saves 10 images from a device.
@@ -297,6 +411,7 @@ def acquire_images(cam, nodemap, nodemap_tldevice):
         print('')
         picList = []
         timelist = []
+        picMatrix = []
 
         # Retrieve, convert, and save images
         for i in range(NUM_IMAGES):
@@ -341,7 +456,7 @@ def acquire_images(cam, nodemap, nodemap_tldevice):
 					#add to piclist
                     imgarray = image_converted.GetNDArray()
                     picList.append(imgarray)
-
+                    picMatrix.append(imgarray)
                     # Create a unique filename
 					#maybe later? (CP)
                     ##if device_serial_number:
@@ -362,7 +477,7 @@ def acquire_images(cam, nodemap, nodemap_tldevice):
                     image_result.Release()
                     if i%4 == 0 and i > 0:
                         if i%8 == 0:
-                            faze = fourpointphase(picList) #Novak #4 point
+                            faze = carre_phase(picList) #Novak_phase_no_mask #Novak_phase #carre_phase #fourpointphase
                         
                             #print(faze.dtype)
                             #print(numpy.shape(faze))                     
@@ -387,6 +502,13 @@ def acquire_images(cam, nodemap, nodemap_tldevice):
             except PySpin.SpinnakerException as ex:
                 print('Error: %s' % ex)
                 return False
+        AVG=Avg(picMatrix, NUM_IMAGES)
+        plt.ion()						
+        plt.imshow(AVG, cmap = 'jet')	
+        plt.show()
+        plt.clf()
+        name = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/MyFirstMEGAPHASEPLOT'
+        plt.savefig(name)
 
 		#some more stuff from V3	
         timelist = numpy.asarray(timelist)
@@ -591,7 +713,10 @@ def main():
 
     # Clear camera list before releasing system
     cam_list.Clear()
-
+	
+	# averaging method 
+    #avg = Avg(picList, 160) ### 160 NUMBER OF IMAGES TO USE, SHOULD BE CONFIDENT NO BEAM stepping
+	
     # Release system instance
     system.ReleaseInstance()
 
