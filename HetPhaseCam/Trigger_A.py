@@ -12,6 +12,8 @@
 # ADDING BITS SLOWLY TO ORIGINAL tRIGGER.PY SPINNAKER EXAMPLE
 # DOUBLE POUND (##) IS COMMENTED OUT ORIGINAL CODE
 #hey from GIT
+#hey from Cole's mac 11-19, git is confusing gotta figure it out
+#and a load of other stuff too 
 import os
 import PySpin
 import numpy
@@ -22,7 +24,7 @@ from numpy import array, empty, ravel, where, ones, reshape, arctan2
 from matplotlib.pyplot import plot, draw, show, ion
 
 
-NUM_IMAGES = 400  # number of images to grab
+NUM_IMAGES = 420  # number of images to grab
 #eventually change this to an input value 
 
 
