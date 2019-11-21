@@ -14,6 +14,9 @@
 #hey from GIT
 #hey from Cole's mac 11-19, git is confusing gotta figure it out
 #and a load of other stuff too 
+#11-20,Mac. guess I will talk to myself. I think Kaden is logged on to git on the desktop
+#should have access to pjflab when that is switched. Now that Sublime is working, 
+#can I push to GIT the same...
 import os
 import PySpin
 import numpy
