@@ -12,11 +12,6 @@
 # ADDING BITS SLOWLY TO ORIGINAL tRIGGER.PY SPINNAKER EXAMPLE
 # DOUBLE POUND (##) IS COMMENTED OUT ORIGINAL CODE
 #hey from GIT
-#hey from Cole's mac 11-19, git is confusing gotta figure it out
-#and a load of other stuff too 
-#11-20,Mac. guess I will talk to myself. I think Kaden is logged on to git on the desktop
-#should have access to pjflab when that is switched. Now that Sublime is working, 
-#can I push to GIT the same...
 import os
 import PySpin
 import numpy
@@ -27,7 +22,7 @@ from numpy import array, empty, ravel, where, ones, reshape, arctan2
 from matplotlib.pyplot import plot, draw, show, ion
 
 
-NUM_IMAGES = 420  # number of images to grab
+NUM_IMAGES = 400  # number of images to grab
 #eventually change this to an input value 
 
 
@@ -124,13 +119,14 @@ def configure_trigger(cam):
 	
 def Avg(picMatrix, NUM): #ahh this wont work for phase maps as they are just saved as plots
     result = 2
-    c = 0
+    c = 1
     avgMat = numpy.empty(388800) #this is the number of pixels in the camera
 	
 		#do we want to threshold anything or take the average of all the pixels?
     for i in range(NUM):
         if i % 4 == 0 and i > 0:
             c+=1
+            #print(c)
             arr1 = numpy.ravel(numpy.array(picMatrix[i-3],dtype='int'))
             arr2 = numpy.ravel(numpy.array(picMatrix[i-2],dtype='int')) #converts to numpy arrays for faster operation
             arr3 = numpy.ravel(numpy.array(picMatrix[i-1],dtype='int'))
@@ -154,17 +150,18 @@ def Avg(picMatrix, NUM): #ahh this wont work for phase maps as they are just sav
             #den = p1 - p3
             den = arr1 - arr3
             phase = numpy.arctan2(num,den)
-
             #phase[~mask] = 0
             #phase[mask] = pha
             
             #avgMat += phase/(4 * NUM_IMAGES)
-            avgMat += phase
+            for j in range(388800):
+                avgMat[j] += phase[j]
+    
     
     avgMat = avgMat / c	
+    
     avgMat = numpy.reshape(avgMat,(540,720))
 	
-    
 		
     return avgMat #so this is probably going to be really cluncky. (reshape, threshold could help)
 
@@ -417,6 +414,7 @@ def acquire_images(cam, nodemap, nodemap_tldevice):
         picList = []
         timelist = []
         picMatrix = []
+        phaseList = []
 
         # Retrieve, convert, and save images
         for i in range(NUM_IMAGES):
@@ -482,15 +480,15 @@ def acquire_images(cam, nodemap, nodemap_tldevice):
                     image_result.Release()
                     if i%4 == 0 and i > 0:
                         if i%8 == 0:
-                            faze = carre_phase(picList) #Novak_phase_no_mask #Novak_phase #carre_phase #fourpointphase
-                        
+                            faze = fourpointphase(picList) #Novak_phase_no_mask #Novak_phase #carre_phase #fourpointphase
+                            phaseList.append(faze)
                             #print(faze.dtype)
                             #print(numpy.shape(faze))                     
                             plt.ion()						
                             plt.imshow(faze, cmap = 'jet')
-                            #cbar = plt.colorbar()
-                            #plt.clim(vmin=-numpy.pi,vmax=numpy.pi)
-                            #cbar.set_label("Phase Shift (rad)")
+                            cbar = plt.colorbar()#
+                            plt.clim(vmin=-numpy.pi,vmax=numpy.pi)#
+                            cbar.set_label("Phase Shift (rad)")#
                             plt.xlabel("Pixels(x)")
                             plt.ylabel("Pixels(y)")
                             #plt.xlim([300,500])
@@ -514,7 +512,24 @@ def acquire_images(cam, nodemap, nodemap_tldevice):
         plt.clf()
         name = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/MyFirstMEGAPHASEPLOT'
         plt.savefig(name)
+		
+		
+		#attempt to combine saved phase map plots into one (400 intensity images)
+        avg = [(540,720)]	#getting dimensional error... 	
+        
+        for i in range(10):
+            avg += phaseList[i]	
 
+        avg = avg / 10
+        plt.ion()						
+        plt.imshow(avg, cmap = 'jet')	
+        plt.show()
+        plt.clf()
+        name = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/MEGAPHASEPLOT'
+        plt.savefig(name)		
+
+		
+		
 		#some more stuff from V3	
         timelist = numpy.asarray(timelist)
         timediffs = timelist[1:NUM_IMAGES]-timelist[0:NUM_IMAGES-1]
