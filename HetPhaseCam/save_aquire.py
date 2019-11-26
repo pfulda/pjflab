@@ -232,10 +232,15 @@ def acquire_images(cam, nodemap, nodemap_tldevice):
                     imgarray = image_converted.GetNDArray()
                     picList.append(imgarray) #save piclist
 					
+					#saving imgarray
+                    name = File_Name + '-%d' % i  
+                    yeet = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/Data'
+                    numpy.save('{}/{}'.format(yeet, name), imgarray)
+				
 
                     # Create a unique filename
                     if device_serial_number:
-                        filename = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/' + File_Name + '-%d.jpg' % i 
+                        filename = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/jpegs/' + File_Name + '-%d.jpg' % i 
                     else:  # if serial number is empty
                         filename = 'INT-IMG-%d.jpg' % i
                     
@@ -256,7 +261,9 @@ def acquire_images(cam, nodemap, nodemap_tldevice):
         #  Ending acquisition appropriately helps ensure that devices clean up
         #  properly and do not need to be power-cycled to maintain integrity.
         cam.EndAcquisition()
-
+		
+        
+		
     except PySpin.SpinnakerException as ex:
         print('Error: %s' % ex)
         return False
