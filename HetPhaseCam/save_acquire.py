@@ -8,7 +8,12 @@ from numpy import array
 
 
 NUM_IMAGES = int(input("Please enter the number of images you would like: "))  # number of images to grab
-File_Name = input("Enter the name of the file you wish to save the images too: ")
+Folder_Name = input("Enter the name of the folder you wish to save the images too\nthis will also be the beginning of the file name\n(Be careful to not overwrite another folder within\nthe Data directory by using the same name): ")
+
+Data_dir = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/Data'
+data_path = os.path.join(Data_dir,Folder_Name)
+os.mkdir(data_path)
+print('Directory created:', Folder_Name)
 
 class TriggerType:
     HARDWARE = 2
@@ -232,21 +237,13 @@ def acquire_images(cam, nodemap, nodemap_tldevice):
                     imgarray = image_converted.GetNDArray()
                     picList.append(imgarray) #save piclist
 					
-					#saving imgarray
-                    name = File_Name + '-%d' % i  
-                    yeet = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/Data'
-                    numpy.save('{}/{}'.format(yeet, name), imgarray)
-				
 
-                    # Create a unique filename
-                    if device_serial_number:
-                        filename = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/jpegs/' + File_Name + '-%d.jpg' % i 
-                    else:  # if serial number is empty
-                        filename = 'INT-IMG-%d.jpg' % i
-                    
-                     #save image. need to save to a folder, ad time and date so as not to override images
-                    image_converted.Save(filename)
-						
+					
+					#saving imgarray
+                    name = Folder_Name + '_%d' % i  
+                    numpy.save('{}/{}'.format(data_path, name), imgarray)
+				
+#Removed JPG saving process from original save_acquire on pjflab as of 12/16/2019 (kjl)	
 					
             except PySpin.SpinnakerException as ex:
                 print('Error: %s' % ex)
