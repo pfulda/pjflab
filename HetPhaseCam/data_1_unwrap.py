@@ -40,6 +40,19 @@ MPP = numpy.empty(388800) #Mega phase plot, un/re averaged
 #counter for averaging individual phase plots
 c = 0
 
+def contrast (arr1, arr2, arr3, arr4,mask): #this is from Guzman paper. we are using novak insteasd of 4point, however these contrast values should still be valid
+	C = 0
+	a = 0
+	b = 0 
+	d = 0
+	for i in range (388800):
+		if (mask[i] == False):
+			a += arr1[i] - arr3[i]
+			b += arr4[i] - arr2[i]
+			d += arr1[i] + arr3[i] + arr4[i] + arr2[i]
+	C = 2 * numpy.sqrt(a**2 + b**2) / d	
+	return C
+	
 for i in range(NUM_IMAGES):	
 	if i % 8 == 0 and i > 0 and i < NUM_IMAGES - 4:  #MAKE SURE OVERLAP IS RIGHT... (%8 FOR NOVAK, %4 FOR 4P AND CARRE)
 		c += 1
@@ -77,6 +90,11 @@ for i in range(NUM_IMAGES):
 		#adding 1D PM values to average PM 
 		PM_avg += phase
 		
+		#contrast of first phase map\
+		if c == 1:
+			C = contrast(arr1,arr2,arr3,arr4,mask) 
+			print ('Contrast of first PM: ' + str(C))
+			
 		#saving single phase map. good reference 
 		if c == 1:
 			STD=numpy.std(phase) #I do not know how to include this in the data/images. I will record this in my notebook
@@ -105,7 +123,7 @@ for i in range(NUM_IMAGES):
 			pha_un = numpy.zeros(388800)
 			
 			#mask to avoid trailing unwrapping 
-			arr1 = numpy.ravel(numpy.array(picList[0],dtype='int'))		
+			arr1 = numpy.ravel(numpy.array(picList[i],dtype='int'))	#would it be better to use the first image of the whole set or of the PM set	
 			mask = numpy.ones(388800,dtype=bool)
 			cuts = numpy.where(arr1 < 15)
 			mask[cuts] = False
@@ -116,7 +134,7 @@ for i in range(NUM_IMAGES):
 					k = 0
 					a = phase[720*i+j+1]
 					b = phase[i*720+j]
-					if (a + numpy.pi*1.5 < b) and (mask[720*i+j+1+k] == False):
+					if (a + numpy.pi*1.5 < b) and (mask[720*i+j+1+k] == False): #what happens if only one of a or b is unmasked (both are, phase is not boolean)
 						for k in range(719-j):
 							phase[720*i+j+1+k] += 2*numpy.pi
 					elif (a > 1.5*numpy.pi + b) and (mask[720*i+j+1+k] == False):
