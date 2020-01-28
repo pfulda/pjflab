@@ -4,51 +4,59 @@
 #make sure proper things have been imported
 import os
 import PySpin
-import numpy
+import numpy as np
 import matplotlib.pyplot as plt
 import time
 from PIL import Image
 from numpy import array, empty, ravel, where, ones, reshape, arctan2
 from matplotlib.pyplot import plot, draw, show, ion
 
-#2D arrray for exposure,gain,and 'dark noise measurement'
-DarkNoise = [0][0] #how big? which axis is which?  
+NUM_IMAGES = int(input("Please enter the number of images you would like: "))  # number of images to grab
+Folder_Name = input("Enter the name of the folder you wish to save the images too\nthis will also be the beginning of the file name\n(Be careful to not overwrite another folder within\nthe Data directory by using the same name): ")
+
+Data_dir = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/Data'
+data_path = os.path.join(Data_dir,Folder_Name)
+os.mkdir(data_path)
+print('Directory created:', Folder_Name)
+
+#rather than making 3D matrix with (M,N,I), instead one dependent var array
+#and have the M and N arrays so that we are plotting in 3D two ind vs one dep
+#array of size 1000*300=(#ofexposuresettings)*(#ofgainsettings)
+DarkNoise = numpy.empty((1000,300))
+#KL: see https://stackoverflow.com/questions/6667201/how-to-define-a-two-dimensional-array-in-python
 
 
-NUM_IMAGES = 100 #100 images for each exposure/gain configuration
 
-#not sure where these need to go
 #method for checking the pixel value of images
 def PixelPoints (picList, NUM): #picList will be unraveled numpy array of intensity values
 
-	#create certain pixels to iterate through
-	pix1 = 720*270+360 #pixel in middle, will add more later, maybe randomize? 
+	#create certain pixels to iterate through (one pixel for now)
+	pix1 = 720*270+360 #pixel in middle, will add more later, maybe randomize?
 	y=[0]*100
 	x=[0]*100
 
-	#do we want average or time series of the pixel value? 
-	for i in range(NUM): 
+	#do we want average or time series of the pixel value?
+	for i in range(NUM_IMAGES):
 		arr=numpy.ravel(numpy.array(picList[i]))
-		y[i]=arr[pix1] #proper way to say pixel pix1 of image i? 
+		y[i]=arr[pix1] #proper way to say pixel pix1 of image i?
 		x[i]=i
 
-<<<<<<< HEAD
-	#maybe dont do this with all of these? 
-	#compare various pixels for any settings configuration. 
-=======
->>>>>>> 3d7ae6a3243b3c859c35ff348e5fa6c42da1962e
-	#creating plot of pixels value 
+	#maybe dont do this with all of these?
+	#compare various pixels for any settings configuration.
+
+
+	#creating plot of pixels value
 	plt.plot(x,y)
 	plt.xlabel('Image number')
 	plt.ylabel('Pixel Value')
 	plt.title('Dark Measurment Test')
-	plt.show()	
+	plt.show()
 
 	#average value
-	#average all pixels together? 
+	#average all pixels together?
 	pix1AVG = numpy.mean(x)
 
-def configure_exposure(cam, M): #set M to proper us value
+def configure_exposure(cam, M): #set M to proper μs value
     """
      This function configures a custom exposure time. Automatic exposure is turned
      off in order to allow for the customization, and then the custom setting is
@@ -119,16 +127,16 @@ def configure_exposure(cam, M): #set M to proper us value
     return result
 
 
-#method to change through seetings. 
+#method to change through settings.
 #make sure to call the correct variables to set these values on the camera
 def settings (nodemap, cam, M, N)
-	result = true 
+	result = true
 
 	#setting M th exposure time in us
 	#4us is minimum. stops just before .01 seconds
 	M = 4 + M*10
 	result &= configure_exposure(cam, M)
-	
+
 	#setting gain value
 	N = ???
     node_gain_auto = PySpin.CEnumerationPtr(nodemap.GetNode('GainAuto'))
@@ -143,7 +151,7 @@ def settings (nodemap, cam, M, N)
 
     node_gain_auto.SetIntValue(node_gain_auto_off.GetValue())
 
-    #do we need gain selector? checking blackfly 
+    #do we need gain selector? checking blackfly
 
     #set gain value (N) [potential do this the same way as the exposure method]
     node_gain = PySpin.CFloatPtr(nodemap.GetNode('Gain'))
@@ -156,11 +164,11 @@ def settings (nodemap, cam, M, N)
 	return result
 
 
-#Hardware trigger... 
+#Hardware trigger...
 class TriggerType:
-    HARDWARE = 2 
+    HARDWARE = 2
 
-CHOSEN_TRIGGER = TriggerType.HARDWARE    
+CHOSEN_TRIGGER = TriggerType.HARDWARE
 
 #method to configure hardware trigger to apropriate source
 def configure_trigger(cam):
@@ -179,7 +187,7 @@ def configure_trigger(cam):
 
     print('*** CONFIGURING TRIGGER ***\n')
 
-    
+
 
     try:
         # Ensure trigger mode off
@@ -209,7 +217,7 @@ def configure_trigger(cam):
             return False
 
         if CHOSEN_TRIGGER == TriggerType.HARDWARE: #Should alays be true
-            node_trigger_source_hardware = node_trigger_source.GetEntryByName('Line3') 
+            node_trigger_source_hardware = node_trigger_source.GetEntryByName('Line3')
             if not PySpin.IsAvailable(node_trigger_source_hardware) or not PySpin.IsReadable(
                     node_trigger_source_hardware):
                 print('Unable to set trigger source (enum entry retrieval). Aborting...')
@@ -254,15 +262,15 @@ def grab_next_image_by_trigger(nodemap, cam):
         # When an image is retrieved, it is plucked from the stream.
 
         if CHOSEN_TRIGGER == TriggerType.HARDWARE:
-            a = 2 #will this make it happy? (CP) update still dont get this but it works 
-			
+            a = 2 #will this make it happy? (CP) update still dont get this but it works
+
     except PySpin.SpinnakerException as ex:
         print('Error: %s' % ex)
         return False
 
     return result
 
-def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number, N is gain level 
+def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number, N is gain level
     """
     This function acquires saves images from a device.
     Please see Acquisition example for more in-depth comments on acquiring images.
@@ -281,7 +289,7 @@ def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number,
     try:
         result = True
 
-        #set exposure and gain 
+        #set exposure and gain
         result &= settings(nodemap, cam, M, N)
 
         # Set acquisition mode to continuous
@@ -322,8 +330,8 @@ def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number,
         if PySpin.IsAvailable(node_device_serial_number) and PySpin.IsReadable(node_device_serial_number):
             device_serial_number = node_device_serial_number.GetValue()
             print('Device serial number retrieved as %s...' % device_serial_number)
-			
-			
+
+
 		#From Novak (CP) okay so we dont need any PSA in this code
         print('')
         picList = []
@@ -370,7 +378,7 @@ def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number,
                     #  When converting images, color processing algorithm is an
                     #  optional parameter.
                     image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
-					
+
 					#add to piclist
                     imgarray = image_converted.GetNDArray()
                     picList.append(imgarray)
@@ -390,7 +398,7 @@ def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number,
                     #  overwriting those of another.
                     ##image_converted.Save(filename)
                     ##print('Image saved at %s\n' % filename)
-					
+
 					#  Release image (from Novak, LivePhase_V3)
                     image_result.Release()
                     if i%4 == 0 and i > 0:
@@ -398,8 +406,8 @@ def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number,
                             faze = fourpointphase(picList) #Novak_phase_no_mask #Novak_phase #carre_phase #fourpointphase
                             phaseList.append(faze)
                             #print(faze.dtype)
-                            #print(numpy.shape(faze))                     
-                            plt.ion()						
+                            #print(numpy.shape(faze))
+                            plt.ion()
                             plt.imshow(faze, cmap = 'jet')
                             cbar = plt.colorbar()#
                             plt.clim(vmin=-numpy.pi,vmax=numpy.pi)#
@@ -411,41 +419,41 @@ def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number,
                             plt.pause(0.00001)
                             plt.show()
                             plt.clf()
-							
-                        
-                        del picList[0:4] 
-						
-					
+
+
+                        del picList[0:4]
+
+
 
             except PySpin.SpinnakerException as ex:
                 print('Error: %s' % ex)
                 return False
         AVG=Avg(picMatrix, NUM_IMAGES)
-        plt.ion()						
-        plt.imshow(AVG, cmap = 'jet')	
+        plt.ion()
+        plt.imshow(AVG, cmap = 'jet')
         plt.show()
         plt.clf()
         name = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/MyFirstMEGAPHASEPLOT'
         plt.savefig(name)
-		
-		
+
+
 		#attempt to combine saved phase map plots into one (400 intensity images)
-        avg = [(540,720)]	#getting dimensional error... 	
-        
+        avg = [(540,720)]	#getting dimensional error...
+
         for i in range(10):
-            avg += phaseList[i]	
+            avg += phaseList[i]
 
         avg = avg / 10
-        plt.ion()						
-        plt.imshow(avg, cmap = 'jet')	
+        plt.ion()
+        plt.imshow(avg, cmap = 'jet')
         plt.show()
         plt.clf()
         name = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/MEGAPHASEPLOT'
-        plt.savefig(name)		
+        plt.savefig(name)
 
-		
-		
-		#some more stuff from V3	
+
+
+		#some more stuff from V3
         timelist = numpy.asarray(timelist)
         timediffs = timelist[1:NUM_IMAGES]-timelist[0:NUM_IMAGES-1]
         print("Average time between image captures: ", numpy.mean(timediffs)," seconds")
@@ -454,8 +462,8 @@ def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number,
         plt.ion()
         plt.plot(timediffs)
         plt.show()
-		
-		
+
+
         # End acquisition
         #
         #  *** NOTES ***
@@ -472,7 +480,7 @@ def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number,
 def reset_trigger(nodemap):
     """
     This function returns the camera to a normal state by turning off trigger mode.
-  
+
     :param nodemap: Transport layer device nodemap.
     :type nodemap: INodeMap
     :returns: True if successful, False otherwise.
@@ -563,13 +571,13 @@ def run_single_camera(cam):
         if configure_trigger(cam) is False:
             return False
 
-        # Acquire images 
-        #double loop, acquire images will call method(s?) to set the proper settings 
+        # Acquire images
+        #double loop, acquire images will call method(s?) to set the proper settings
         for M in range(999): #exposure (4us to just under .01s)
-        #[.01 is probably too close to the capture frequancy]) maybe more iterations through smaller range??
-        	for N in range(TBD): #gain (is a log scale)
+        #[.01 is probably too close to the capture frequency]) maybe more iterations through smaller range??
+        	for N in range(47): #gain (is a log scale)
         		#everytime this is called take 100 images with M and N settings (how many pixels)
-        		result &= acquire_images(cam, nodemap, nodemap_tldevice, M, N) 
+        		result &= acquire_images(cam, nodemap, nodemap_tldevice, M, N)
 
         # Reset trigger
         result &= reset_trigger(nodemap)
@@ -635,7 +643,7 @@ def main():
         return False
 
     # Run example on each camera, should only be one...
-    #should loop go around run signle cam a=with variables passed for the settings? 
+    #should loop go around run signle cam a=with variables passed for the settings?
     for i, cam in enumerate(cam_list):
 
         print('Running example for camera %d...' % i)
@@ -651,10 +659,10 @@ def main():
 
     # Clear camera list before releasing system
     cam_list.Clear()
-	
-	# averaging method 
+
+	# averaging method
     #avg = Avg(picList, 160) ### 160 NUMBER OF IMAGES TO USE, SHOULD BE CONFIDENT NO BEAM stepping
-	
+
     # Release system instance
     system.ReleaseInstance()
 
