@@ -11,11 +11,19 @@ from PIL import Image
 from numpy import array, empty, ravel, where, ones, reshape, arctan2
 from matplotlib.pyplot import plot, draw, show, ion
 
-#2D arrray for exposure,gain,and 'dark noise measurement'
-DarkNoise = [0][0] #how big? which axis is which?  
+NUM_IMAGES = int(input("Please enter the number of images you would like: "))  # number of images to grab
+Folder_Name = input("Enter the name of the folder you wish to save the images too\nthis will also be the beginning of the file name\n(Be careful to not overwrite another folder within\nthe Data directory by using the same name): ")
 
+Data_dir = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/Data'
+data_path = os.path.join(Data_dir,Folder_Name)
+os.mkdir(data_path)
+print('Directory created:', Folder_Name)
 
-NUM_IMAGES = 100 #100 images for each exposure/gain configuration
+#rather than making 3D matrix with (M,N,I), instead one dependent var array
+#and have the M and N arrays so that we are plotting in 3D two ind vs one dep
+#array of size 1000*300=(#ofexposuresettings)*(#ofgainsettings)
+DarkNoise = numpy.empty((1000,300))
+#KL: see https://stackoverflow.com/questions/6667201/how-to-define-a-two-dimensional-array-in-python
 
 #not sure where these need to go
 #method for checking the pixel value of images
