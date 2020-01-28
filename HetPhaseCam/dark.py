@@ -11,8 +11,9 @@ from PIL import Image
 from numpy import array, empty, ravel, where, ones, reshape, arctan2
 from matplotlib.pyplot import plot, draw, show, ion
 
-#3D arrray for exposure,gain,and 'dark noise measurement'
-DarkNoise = [0][0] #how big? which axis is which? 2D 
+#2D arrray for exposure,gain,and 'dark noise measurement'
+DarkNoise = [0][0] #how big? which axis is which?  
+
 
 NUM_IMAGES = 100 #100 images for each exposure/gain configuration
 
@@ -31,8 +32,11 @@ def PixelPoints (picList, NUM): #picList will be unraveled numpy array of intens
 		y[i]=arr[pix1] #proper way to say pixel pix1 of image i? 
 		x[i]=i
 
+<<<<<<< HEAD
 	#maybe dont do this with all of these? 
 	#compare various pixels for any settings configuration. 
+=======
+>>>>>>> 3d7ae6a3243b3c859c35ff348e5fa6c42da1962e
 	#creating plot of pixels value 
 	plt.plot(x,y)
 	plt.xlabel('Image number')
