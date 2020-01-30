@@ -11,50 +11,52 @@ from PIL import Image
 from numpy import array, empty, ravel, where, ones, reshape, arctan2
 from matplotlib.pyplot import plot, draw, show, ion
 
-NUM_IMAGES = int(input("Please enter the number of images you would like: "))  # number of images to grab
-Folder_Name = input("Enter the name of the folder you wish to save the images too\nthis will also be the beginning of the file name\n(Be careful to not overwrite another folder within\nthe Data directory by using the same name): ")
+NUM_IMAGES = int(input("Please enter the number of images you would like per pair of camera settings: "))  # number of images to grab
+Folder_Name = input("Enter the name of the folder you wish to save the data too\nthis will also be the beginning of the file name: ")
 
-Data_dir = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/Data'
+Data_dir = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/Data' #change if using SLM computer to appropriate path
 data_path = os.path.join(Data_dir,Folder_Name)
 os.mkdir(data_path)
 print('Directory created:', Folder_Name)
 
-#rather than making 3D matrix with (M,N,I), instead one dependent var array
-#and have the M and N arrays so that we are plotting in 3D two ind vs one dep
-#array of size 1000*300=(#ofexposuresettings)*(#ofgainsettings)
+
+
+#2D array of size 1000*300=(#ofexposuresettings)*(#ofgainsettings)
 DarkNoise = numpy.empty((1000,300))
 #KL: see https://stackoverflow.com/questions/6667201/how-to-define-a-two-dimensional-array-in-python
 
 
-
 #method for checking the pixel value of images
-def PixelPoints (picList, NUM): #picList will be unraveled numpy array of intensity values
-
-	#create certain pixels to iterate through (one pixel for now)
+def PixelPoints (picList,M,N): #picList will be unraveled numpy array of intensity values
+    #what do we need to save?
+    #array of pixels to interogate
+    pixelList =
+	#create certain pixels to iterate through
 	pix1 = 720*270+360 #pixel in middle, will add more later, maybe randomize?
-	y=[0]*100
-	x=[0]*100
+	IntensityVal_pixj=[0]*NUM_IMAGES #changed from hardcoded towards specifically taking 100 images
+	IntensityImgID_pixj=[0]*NUM_IMAGES #this initialization creates a NUM_IMAGESx1 dimensioned python list object
 
 	#do we want average or time series of the pixel value?
 	for i in range(NUM_IMAGES):
 		arr=numpy.ravel(numpy.array(picList[i]))
-		y[i]=arr[pix1] #proper way to say pixel pix1 of image i?
-		x[i]=i
+		IntensityVal_pixj[i]=arr[pix1] #adds the intensity value at pixj=pix1 to list
 
-	#maybe dont do this with all of these?
-	#compare various pixels for any settings configuration.
+    #convert python list to numpy array
+    IntensityVal_pixj = np.asarray(IntensityVal_pixj)
 
 
+	#average together the intensity values of pixj over all captured images now
+    #stored in IntensityVal_pixj
+	pixjAVG = numpy.mean(IntensityVal_pixj)
+
+
+    #COMMENTING OUT TS PLOT AS THIS IS NOT IMMEDIATE DESIRE (KL)
 	#creating plot of pixels value
-	plt.plot(x,y)
-	plt.xlabel('Image number')
-	plt.ylabel('Pixel Value')
-	plt.title('Dark Measurment Test')
-	plt.show()
-
-	#average value
-	#average all pixels together?
-	pix1AVG = numpy.mean(x)
+	#plt.plot(x,y)
+	#plt.xlabel('Image number')
+	#plt.ylabel('Pixel Value')
+	#plt.title('Dark Measurment Test')
+	#plt.show()
 
 def configure_exposure(cam, M): #set M to proper μs value
     """
@@ -126,10 +128,32 @@ def configure_exposure(cam, M): #set M to proper μs value
 
     return result
 
+def configure_gain(nodemap, N):
+    try:
+        result = true
+
+        # Create float node
+        node_gain = PySpin.CFloatPtr(nodemap.GetNode('Gain'))
+
+        #set value
+        node_gain.SetValue(N)
+
+                # Retrieve float value
+        value = node_gain.GetValue()
+
+                # Print value
+        #print_with_indent(level, '%s: %s' % (display_name, value))
+
+    except PySpin.SpinnakerException as ex:
+        print ('Error: %s') % ex
+        return False
+
+    return result
+
 
 #method to change through settings.
 #make sure to call the correct variables to set these values on the camera
-def settings (nodemap, cam, M, N)
+def settings(nodemap, cam, M, N):
 	result = true
 
 	#setting M th exposure time in us
@@ -138,28 +162,8 @@ def settings (nodemap, cam, M, N)
 	result &= configure_exposure(cam, M)
 
 	#setting gain value
-	N = ???
-    node_gain_auto = PySpin.CEnumerationPtr(nodemap.GetNode('GainAuto'))
-    if not PySpin.IsAvailable(node_gain_auto) or not PySpin.IsReadable(node_gain_auto):
-        print('Unable to disable auto gain (node retrieval). Aborting...')
-        return False
-
-    node_gain_auto_off = node_gain_auto.GetEntryByName('Off')
-    if not PySpin.IsAvailable(node_gain_auto_off) or not PySpin.IsReadable(node_gain_auto_off):
-        print('Unable to disable auto gain (enum entry retrieval). Aborting...')
-        return False
-
-    node_gain_auto.SetIntValue(node_gain_auto_off.GetValue())
-
-    #do we need gain selector? checking blackfly
-
-    #set gain value (N) [potential do this the same way as the exposure method]
-    node_gain = PySpin.CFloatPtr(nodemap.GetNode('Gain'))
-    if not PySpin.IsAvailable(node_gain) or not PySpin.IsReadable(node_gain):
-        print('Unable to set gain (node retrieval). Aborting...')
-        return False
-
-
+	N = N * .1 #(0-30)
+    result &= configure_gain(nodemap, N)
 
 	return result
 
@@ -319,27 +323,12 @@ def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number,
 
         print('Acquiring images...')
 
-        #  Retrieve device serial number for filename
-        #
-        #  *** NOTES ***
-        #  The device serial number is retrieved in order to keep cameras from
-        #  overwriting one another. Grabbing image IDs could also accomplish
-        #  this.
-        device_serial_number = ''
-        node_device_serial_number = PySpin.CStringPtr(nodemap_tldevice.GetNode('DeviceSerialNumber'))
-        if PySpin.IsAvailable(node_device_serial_number) and PySpin.IsReadable(node_device_serial_number):
-            device_serial_number = node_device_serial_number.GetValue()
-            print('Device serial number retrieved as %s...' % device_serial_number)
-
-
-		#From Novak (CP) okay so we dont need any PSA in this code
+		#matrix to collect images
         print('')
         picList = []
-        timelist = []
-        picMatrix = []
-        phaseList = []
 
         # Retrieve, convert, and save images
+        # image number specified and iterated through for each exposure/gain configuration
         for i in range(NUM_IMAGES):
             try:
 
@@ -354,122 +343,29 @@ def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number,
                     print('Image incomplete with image status %d ...' % image_result.GetImageStatus())
 
                 else:
-
-                    #  Print image information; height and width recorded in pixels
-                    #
-                    #  *** NOTES ***
-                    #  Images have quite a bit of available metadata including
-                    #  things such as CRC, image status, and offset values, to
-                    #  name a few.
-					#
-					#Don't need this right now (CP)
-                    ##width = image_result.GetWidth()
-                    ##height = image_result.GetHeight()
-                    ##print('Grabbed Image %d, width = %d, height = %d' % (i, width, height))
-
-                    #  Convert image to mono 8
-                    #
-                    #  *** NOTES ***
-                    #  Images can be converted between pixel formats by using
-                    #  the appropriate enumeration value. Unlike the original
-                    #  image, the converted one does not need to be released as
-                    #  it does not affect the camera buffer.
-                    #
-                    #  When converting images, color processing algorithm is an
-                    #  optional parameter.
                     image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
 
 					#add to piclist
                     imgarray = image_converted.GetNDArray()
-                    picList.append(imgarray)
-                    picMatrix.append(imgarray)
-                    # Create a unique filename
-					#maybe later? (CP)
-                    ##if device_serial_number:
-                    ##    filename = 'Trigger-%s-%d.jpg' % (device_serial_number, i)
-                    ##else:  # if serial number is empty
-                    ##    filename = 'Trigger-%d.jpg' % i
+                    picList.append(imgarray) #array of the pixel values of each individual image
 
-                    # Save image (no thanks) Maybe get naming from save_aquire saving is desired on this code
-                    #
-                    #  *** NOTES ***
-                    #  The standard practice of the examples is to use device
-                    #  serial numbers to keep images of one device from
-                    #  overwriting those of another.
-                    ##image_converted.Save(filename)
-                    ##print('Image saved at %s\n' % filename)
-
-					#  Release image (from Novak, LivePhase_V3)
+					#  Release image
                     image_result.Release()
-                    if i%4 == 0 and i > 0:
-                        if i%8 == 0:
-                            faze = fourpointphase(picList) #Novak_phase_no_mask #Novak_phase #carre_phase #fourpointphase
-                            phaseList.append(faze)
-                            #print(faze.dtype)
-                            #print(numpy.shape(faze))
-                            plt.ion()
-                            plt.imshow(faze, cmap = 'jet')
-                            cbar = plt.colorbar()#
-                            plt.clim(vmin=-numpy.pi,vmax=numpy.pi)#
-                            cbar.set_label("Phase Shift (rad)")#
-                            plt.xlabel("Pixels(x)")
-                            plt.ylabel("Pixels(y)")
-                            #plt.xlim([300,500])
-                            #plt.ylim([200,400])
-                            plt.pause(0.00001)
-                            plt.show()
-                            plt.clf()
-
-
-                        del picList[0:4]
-
-
 
             except PySpin.SpinnakerException as ex:
                 print('Error: %s' % ex)
                 return False
-        AVG=Avg(picMatrix, NUM_IMAGES)
-        plt.ion()
-        plt.imshow(AVG, cmap = 'jet')
-        plt.show()
-        plt.clf()
-        name = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/MyFirstMEGAPHASEPLOT'
-        plt.savefig(name)
 
-
-		#attempt to combine saved phase map plots into one (400 intensity images)
-        avg = [(540,720)]	#getting dimensional error...
-
-        for i in range(10):
-            avg += phaseList[i]
-
-        avg = avg / 10
-        plt.ion()
-        plt.imshow(avg, cmap = 'jet')
-        plt.show()
-        plt.clf()
-        name = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/MEGAPHASEPLOT'
-        plt.savefig(name)
-
-
-
-		#some more stuff from V3
-        timelist = numpy.asarray(timelist)
-        timediffs = timelist[1:NUM_IMAGES]-timelist[0:NUM_IMAGES-1]
-        print("Average time between image captures: ", numpy.mean(timediffs)," seconds")
-        print("Standard deviation: ", numpy.std(timediffs)," seconds")
-        print(timediffs[0:100])
-        plt.ion()
-        plt.plot(timediffs)
-        plt.show()
-
-
-        # End acquisition
-        #
-        #  *** NOTES ***
-        #  Ending acquisition appropriately helps ensure that devices clean up
-        #  properly and do not need to be power-cycled to maintain integrity.
-        cam.EndAcquisition()
+        #now that picList is populated with NUM_IMAGES we send it to
+        #pixel points where n pixels will be averaged throughput all images
+        #then average of pixel n will be compared to make sure all n pixels are behaving
+        #the same at wich point all averages of n pixels will be averaged to give the dark noise
+        #value for the M/N Exposure/Gain settings configuration
+        result &= PixelPoints(picList,M,N)    #result &= (?) Yeah (KL)
+                                        #I think the processing should be done offline
+                                        #i.e. dark.py would be only capturing and tagging datasets
+                                        #whereas dark_calc.py would actually do the averaging offline using the Directory
+                                        #and (M,N) settings tag
 
     except PySpin.SpinnakerException as ex:
         print('Error: %s' % ex)
@@ -574,9 +470,9 @@ def run_single_camera(cam):
         # Acquire images
         #double loop, acquire images will call method(s?) to set the proper settings
         for M in range(999): #exposure (4us to just under .01s)
-        #[.01 is probably too close to the capture frequency]) maybe more iterations through smaller range??
-        	for N in range(47): #gain (is a log scale)
-        		#everytime this is called take 100 images with M and N settings (how many pixels)
+        #[.01 is probably too close to the capture frequancy]) maybe more iterations through smaller range??
+        	for N in range(300): #gain (is a log scale) (0-30 dB)
+        		#everytime this is called take NUM_IMAGES images with M and N settings (how many pixels)
         		result &= acquire_images(cam, nodemap, nodemap_tldevice, M, N)
 
         # Reset trigger
@@ -648,7 +544,7 @@ def main():
 
         print('Running example for camera %d...' % i)
 
-        result &= run_single_camera(cam)
+        result &= run_single_camera(cam) #this loops through all M and N, for each combination saving data from NUM_Images number of intensity images
         print('Camera %d example complete... \n' % i)
 
     # Release reference to camera
