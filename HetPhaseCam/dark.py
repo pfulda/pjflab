@@ -21,41 +21,39 @@ print('Directory created:', Folder_Name)
 
 #rather than making 3D matrix with (M,N,I), instead one dependent var array
 #and have the M and N arrays so that we are plotting in 3D two ind vs one dep
-#array of size 1000*300=(#ofexposuresettings)*(#ofgainsettings)
-DarkNoise = numpy.empty((1000,300))
+#array of size 999*300=(#ofexposuresettings)*(#ofgainsettings)
+DarkNoise = numpy.empty((999,300))
 #KL: see https://stackoverflow.com/questions/6667201/how-to-define-a-two-dimensional-array-in-python
 
 #not sure where these need to go
 #method for checking the pixel value of images
-def PixelPoints (picList): #picList will be unraveled numpy array of intensity values
+def PixelPoints (picList,M,N): #picList will be unraveled numpy array of intensity values
     #what do we need to save? Dont need to show each plot
     
 	#create certain pixels to iterate through
 	pix1 = 720*270+360 #pixel in middle, will add more later, maybe randomize? 
+    pix2 = 21640 #[30,40]
+    pix3 = 144000 #[200,0]
+    pix4 = 720*250+600 #[250,600]
+    pix5 = 720*100+500 #[100,500]
+    pix6 = 720*375+150 #[375,150]
+    pix7 = 720*450+675 #[450,675]
+    pix8 = 720*250+300 #[250,300]
+    pix9 = 720*500+400 #[500,400]
 	y=[0]*100
-	x=[0]*100
+	#x=[0]*100 if we wanted to do something with the time series
 
 	#do we want average or time series of the pixel value? 
 	for i in range(NUM_IMAGES): 
 		arr=numpy.ravel(numpy.array(picList[i]))
-		y[i]=arr[pix1] #proper way to say pixel pix1 of image i? 
-		x[i]=i
+		y[i]=arr[pix1]+arr[pix2]+arr[pix3]+arr[pix4]+arr[pix5]+arr[pix6]+arr[pix7]+arr[pix8]+arr[pix9]/9
+		#x[i]=i
 
-<<<<<<< HEAD
-	#maybe dont do this with all of these? 
-	#compare various pixels for any settings configuration. 
-=======
->>>>>>> 3d7ae6a3243b3c859c35ff348e5fa6c42da1962e
-	#creating plot of pixels value 
-	plt.plot(x,y)
-	plt.xlabel('Image number')
-	plt.ylabel('Pixel Value')
-	plt.title('Dark Measurment Test')
-	plt.show()	
 
+    DarkNoise[M][N] = numpy.mean(y)
 	#average value
 	#average all pixels together? 
-	pix1AVG = numpy.mean(x)
+	#pix1AVG = numpy.mean(x)
 
 def configure_exposure(cam, M): #set M to proper us value
     """
@@ -324,7 +322,7 @@ def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number,
 						
 		#matrix to collect images 
         print('')
-        picList = []
+        picList = [] #picList is local so it should have to be cleared every time running acquire images
         
         # Retrieve, convert, and save images
         # image number specified and iterated through for each exposure/gain configuration
@@ -360,7 +358,7 @@ def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number,
         #then average of pixel n will be compared to make sure all n pixels are behaving 
         #the same at wich point all averages of n pixels will be averaged to give the dark noise 
         #value for the M/N Exposure/Gain settings configureation
-        PixelPoints(picList)    #result &= (?)
+        result &= PixelPoints(picList)    
 
     except PySpin.SpinnakerException as ex:
         print('Error: %s' % ex)
@@ -469,6 +467,10 @@ def run_single_camera(cam):
         	for N in range(300): #gain (is a log scale) (0-30 dB)
         		#everytime this is called take 100 images with M and N settings (how many pixels)
         		result &= acquire_images(cam, nodemap, nodemap_tldevice, M, N) 
+
+        #save 2D array
+        name = data_path + '.npy'
+        numpy.save(name,DarkNoise)      
 
         # Reset trigger
         result &= reset_trigger(nodemap)
