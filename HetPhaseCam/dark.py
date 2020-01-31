@@ -22,38 +22,41 @@ print('Directory created:', Folder_Name)
 #rather than making 3D matrix with (M,N,I), instead one dependent var array
 #and have the M and N arrays so that we are plotting in 3D two ind vs one dep
 #array of size 999*300=(#ofexposuresettings)*(#ofgainsettings)
-DarkNoise = numpy.empty((9,3))
+DarkNoise = numpy.empty((999,300))
 #KL: see https://stackoverflow.com/questions/6667201/how-to-define-a-two-dimensional-array-in-python
 
-#not sure where these need to go
+#global indices for interrogated pixel grid (coming from pjflab file 'Generation_of_Pixel_Array.ipynb')
+Array_PixID = [ 21640,  21720,  21800,  21880,  21960,  22040,  22120,  22200,
+        22280,  64840,  64920,  65000,  65080,  65160,  65240,  65320,
+        65400,  65480, 108040, 108120, 108200, 108280, 108360, 108440,
+       108520, 108600, 108680, 151240, 151320, 151400, 151480, 151560,
+       151640, 151720, 151800, 151880, 194440, 194520, 194600, 194680,
+       194760, 194840, 194920, 195000, 195080, 237640, 237720, 237800,
+       237880, 237960, 238040, 238120, 238200, 238280, 280840, 280920,
+       281000, 281080, 281160, 281240, 281320, 281400, 281480, 324040,
+       324120, 324200, 324280, 324360, 324440, 324520, 324600, 324680,
+       367240, 367320, 367400, 367480, 367560, 367640, 367720, 367800,
+       367880]
+
+
 #method for checking the pixel value of images
 def PixelPoints (picList,M,N): #picList will be unraveled numpy array of intensity values
-    #what do we need to save? Dont need to show each plot
-    
-	#create certain pixels to iterate through
-    pix1 = 720*270+360 #pixel in middle, will add more later, maybe randomize? 
-    pix2 = 21640 #[30,40]
-    pix3 = 144000 #[200,0]
-    pix4 = 720*250+600 #[250,600]
-    pix5 = 720*100+500 #[100,500]
-    pix6 = 720*375+150 #[375,150]
-    pix7 = 720*450+675 #[450,675]
-    pix8 = 720*250+300 #[250,300]
-    pix9 = 720*500+400 #[500,400]
-    y=numpy.empty(NUM_IMAGES)
-	#x=[0]*100 if we wanted to do something with the time series
 
-	#do we want average or time series of the pixel value? 
-    for i in range(NUM_IMAGES): 
-        arr=numpy.ravel(numpy.array(picList[i], dtype='int'))
-        y[i]=(arr[pix1]+arr[pix2]+arr[pix3]+arr[pix4]+arr[pix5]+arr[pix6]+arr[pix7]+arr[pix8]+arr[pix9])/9
-		#x[i]=i
+    #empty array which will hold avg intensity value over NUM_IMAGES per PIXID
+    Avg_Array = numpy.empty(numpy.size(Array_PixID))
 
+    for j in range(numpy.size(Array_PixID)):
+        PixID = Array_PixID[j]  #single pixel per iteration on Array_PixID elements
+        IVal = [0]*NUM_IMAGES #creates new IVal array for each pixel probed
+        for i in range(NUM_IMAGES):
+            arr=numpy.ravel(numpy.array(picList[i])) #each iteration chooses different intensity image
+            IVal[i] = arr[PixID] #each element of IVal will get intensity values from same pixel per Array_PixID iteration
+        Avg_IV = numpy.mean(IVal) #averages all NUM_IMAGES elements in IVal to a single value
+        Avg_Array[j] = Avg_IV #new avgd intensity added to Avg_Array per PixID iterated through
 
-    DarkNoise[M][N] = numpy.mean(y)
-	#average value
-	#average all pixels together? 
-	#pix1AVG = numpy.mean(x)
+    Tot_Avg = numpy.mean(Avg_Array) #Averages all 81 elements of Avg_Array (i.e. 81 pixels) for avg intensity over sensor of a given (M,N)
+
+    DarkNoise[M][N] = Tot_Avg #assigns to element (M,N) or DarkNoise the Tot_Avg for the same (M,N) settings
 
 def configure_exposure(cam, M): #set M to proper us value
     """
@@ -154,11 +157,11 @@ def settings (nodemap, cam, M, N):
 
 	#setting M th exposure time in us
 	#4us is minimum. stops just before .01 seconds
-    M = 4 + M*30 #10
+    M = 4 + M*10
     result &= configure_exposure(cam, M)
 	
 	#setting gain value
-    N = N * 7 #.1 #(0-30)
+    N = N * .1 #(0-30)
     result &= configure_gain(nodemap, N)
 
     return result
@@ -341,7 +344,7 @@ def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number,
 					
 					#  Release image 
                     image_result.Release() 	
-
+        
             except PySpin.SpinnakerException as ex:
                 print('Error image acq: %s' % ex)
                 return False
@@ -351,6 +354,7 @@ def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number,
         #then average of pixel n will be compared to make sure all n pixels are behaving 
         #the same at which point all averages of n pixels will be averaged to give the dark noise 
         #value for the M/N Exposure/Gain settings configureation
+        cam.EndAcquisition()  #KL_758   
         PixelPoints(picList,M,N)    
 
     except PySpin.SpinnakerException as ex:
@@ -468,10 +472,13 @@ def run_single_camera(cam,M,N):
     return result
 
 
+
+
 def main():
     """
     Example entry point; please see Enumeration example for more in-depth
     comments on preparing and cleaning up the system.
+
     :return: True if successful, False otherwise.
     :rtype: bool
     """
@@ -479,79 +486,76 @@ def main():
     # Since this application saves images in the current folder
     # we must ensure that we have permission to write to this folder.
     # If we do not have permission, fail right away.
-    for M in range(9):
-        for N in range(3): 
-            try:
-                test_file = open('test.txt', 'w+')
-            except IOError:
-                print('Unable to write to current directory. Please check permissions.')
-                input('Press Enter to exit...')
-                return False
+    try:
+        test_file = open('test.txt', 'w+')
+    except IOError:
+        print('Unable to write to current directory. Please check permissions.')
+        input('Press Enter to exit...')
+        return False
 
-            test_file.close()
-            os.remove(test_file.name)
+    test_file.close()
+    os.remove(test_file.name)
 
-            result = True
+    result = True
 
-			# Retrieve singleton reference to system object
-            system = PySpin.System.GetInstance()
+    # Retrieve singleton reference to system object
+    system = PySpin.System.GetInstance()
 
-			# Get current library version
-            version = system.GetLibraryVersion()
-            print('Library version: %d.%d.%d.%d' % (version.major, version.minor, version.type, version.build))
+    # Get current library version
+    version = system.GetLibraryVersion()
+    print('Library version: %d.%d.%d.%d' % (version.major, version.minor, version.type, version.build))
 
-			# Retrieve list of cameras from the system
-            cam_list = system.GetCameras()
+    # Retrieve list of cameras from the system
+    cam_list = system.GetCameras()
 
-            num_cameras = cam_list.GetSize()
+    num_cameras = cam_list.GetSize()
 
-            print('Number of cameras detected: %d' % num_cameras)
+    print('Number of cameras detected: %d' % num_cameras)
 
-			# Finish if there are no cameras
-            if num_cameras == 0:
-				# Clear camera list before releasing system
-                cam_list.Clear()
+    # Finish if there are no cameras
+    if num_cameras == 0:
+        # Clear camera list before releasing system
+        cam_list.Clear()
 
-				# Release system instance
-                system.ReleaseInstance()
+        # Release system instance
+        system.ReleaseInstance()
 
-                print('Not enough cameras!')
-                input('Done! Press Enter to exit...')
-                return False
+        print('Not enough cameras!')
+        input('Done! Press Enter to exit...')
+        return False
 
-			# Run example on each camera, should only be one...
-			#should loop go around run signle cam a=with variables passed for the settings? 
-            for i, cam in enumerate(cam_list):
+    # Run example on each camera, should only be one...
+    #should loop go around run signle cam a=with variables passed for the settings?
+    for i, cam in enumerate(cam_list):
 
-                print('Running example for camera %d...' % i)
-                result &= run_single_camera(cam,M,N)
-                print('Camera %d, example complete... \n' % i)
-						
-			
+        print('Running example for camera %d...' % i)
+        for M in range(999):
+            for N in range(300):
+                result &= run_single_camera(cam,M,N) #this loops through all M and N, for each combination saving data from NUM_Images number of intensity images
+        print('Camera %d example complete... \n' % i)
 
-			# Release reference to camera
-			# NOTE: Unlike the C++ examples, we cannot rely on pointer objects being automatically
-			# cleaned up when going out of scope.
-			# The usage of del is preferred to assigning the variable to None.
-            del cam
+    # Release reference to camera
+    # NOTE: Unlike the C++ examples, we cannot rely on pointer objects being automatically
+    # cleaned up when going out of scope.
+    # The usage of del is preferred to assigning the variable to None.
+    del cam
 
-			# Clear camera list before releasing system
-            cam_list.Clear()
-			
-			# averaging method 
-			#avg = Avg(picList, 160) ### 160 NUMBER OF IMAGES TO USE, SHOULD BE CONFIDENT NO BEAM stepping
-			
-			# Release system instance
-            system.ReleaseInstance()
+    # Clear camera list before releasing system
+    cam_list.Clear()
 
-            input('Done! Press Enter to exit...')
-			
-	#save 2D array
-    name = data_path + Folder_Name + '.npy'
+	# averaging method
+    #avg = Avg(picList, 160) ### 160 NUMBER OF IMAGES TO USE, SHOULD BE CONFIDENT NO BEAM stepping
+
+    # Release system instance
+    system.ReleaseInstance()
+    
+    #save 2D array
+    name = data_path + '.npy'
     numpy.save(name,DarkNoise)      
-    print (DarkNoise)
-    return result
+    print('DarkNoise is saved, booo-yaaaaaaaaa')
 
+    input('Done! Press Enter to exit...')
+    return result
 
 if __name__ == '__main__':
     main()
