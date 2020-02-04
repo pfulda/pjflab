@@ -26,7 +26,7 @@ print('Directory created:', Folder_Name)
 
 #rather than making 3D matrix with (M,N,I), instead one dependent var array
 #and have the M and N arrays so that we are plotting in 3D two ind vs one dep
-#array of size 999*300=(#ofexposuresettings)*(#ofgainsettings)
+#array of size M*N=(#ofexposuresettings)*(#ofgainsettings)
 DarkNoise = numpy.empty((M,N))
 #KL: see https://stackoverflow.com/questions/6667201/how-to-define-a-two-dimensional-array-in-python
 
@@ -45,11 +45,14 @@ Array_PixID = [ 21640,  21720,  21800,  21880,  21960,  22040,  22120,  22200,
 
 
 #method for checking the pixel value of images
-def PixelPoints (picList,M,N): #picList will be unraveled numpy array of intensity values
+#Power Spectral Desnsity !!!! 
+def PixelPoints (picList,j,k): #picList will be list of unraveled numpy array of intensity values. j and k are paramater space
+
 
     #empty array which will hold avg intensity value over NUM_IMAGES per PIXID
     Avg_Array = numpy.empty(numpy.size(Array_PixID))
 
+    #figure out proper way to use time series for Power Spectral Density 
     for j in range(numpy.size(Array_PixID)):
         PixID = Array_PixID[j]  #single pixel per iteration on Array_PixID elements
         IVal = [0]*NUM_IMAGES #creates new IVal array for each pixel probed
@@ -132,25 +135,32 @@ def configure_exposure(cam, exp): #exp is expusre time defined by loop iteration
 
     return result
 
-def configure_gain(nodemap, gain):
+def configure_gain(nodemap,cam,gain):
     try:
         result = True
-    
-        # Create float node
-        node_gain = PySpin.CFloatPtr(nodemap.GetNode('Gain'))
 
-        #set value
-        node_gain.SetValue(gain)
+        #must turn auto gain off before changing gaoin settings
+        if cam.GainAuto.GetAccessMode() != PySpin.RW:
+            print ('Unable to disable automatic Gain. Aborting...')
+            return False
 
-                # Retrieve float value
-        value = node_gain.GetValue()
+        cam.GainAuto.SetValue(PySpin.GainAuto_Off)
+        print ('Automatic exposure disabled...')
 
-                # Print value
-        #print_with_indent(level, '%s: %s' % (display_name, value))
+
+        if cam.Gain.GetAccessMode() != PySpin.RW:
+            print ('Unable to set exposure time. Aborting...')
+            return False
+
+        # Ensure desired gain does not exceed the maximum
+        gain_to_set = gain
+        gain_to_set = min(cam.Gain.GetMax(), gain_to_set)
+        cam.Gain.SetValue(gain_to_set)
+        print ('Gain set to ' + str(gain_to_set) + ' dB...\n') 
 
     except PySpin.SpinnakerException as ex:
-        print ('Error: %s') % ex
-        return False
+        print ('Error: ') % ex
+        result = False
 
     return result
 
@@ -167,7 +177,7 @@ def settings (nodemap, cam, j, k):
 	
 	#setting gain value
     gain = k * n #(0-30)
-    result &= configure_gain(nodemap, gain)
+    result &= configure_gain(nodemap,cam,gain)
 
     return result
 
@@ -465,7 +475,6 @@ def main():
     """
     Example entry point; please see Enumeration example for more in-depth
     comments on preparing and cleaning up the system.
-
     :return: True if successful, False otherwise.
     :rtype: bool
     """
