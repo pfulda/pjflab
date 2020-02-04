@@ -11,7 +11,12 @@ from PIL import Image
 from numpy import array, empty, ravel, where, ones, reshape, arctan2
 from matplotlib.pyplot import plot, draw, show, ion
 
+#user input variables 
 NUM_IMAGES = int(input("Please enter the number of images you would like: "))  # number of images to grab
+M = int(input("Enter the size of the exposure settings you would like: ")) #number of exposure settings
+m = int(input("Enter the slope or step increment of the exposure you would like: "))
+N = int(input("Enter the numer of gain settings you would like: ")) #number of gain settings
+n = int(input("Enter the slope or step size of gain settings you would like (it is a log base): "))
 Folder_Name = input("Enter the name of the folder you wish to save the images too\nthis will also be the beginning of the file name\n(Be careful to not overwrite another folder within\nthe Data directory by using the same name): ")
 
 Data_dir = 'C:/Users/localadmin/Desktop/Phase_Camera_Images/Data'
@@ -22,7 +27,7 @@ print('Directory created:', Folder_Name)
 #rather than making 3D matrix with (M,N,I), instead one dependent var array
 #and have the M and N arrays so that we are plotting in 3D two ind vs one dep
 #array of size 999*300=(#ofexposuresettings)*(#ofgainsettings)
-DarkNoise = numpy.empty((999,300))
+DarkNoise = numpy.empty((M,N))
 #KL: see https://stackoverflow.com/questions/6667201/how-to-define-a-two-dimensional-array-in-python
 
 #global indices for interrogated pixel grid (coming from pjflab file 'Generation_of_Pixel_Array.ipynb')
@@ -58,7 +63,7 @@ def PixelPoints (picList,M,N): #picList will be unraveled numpy array of intensi
 
     DarkNoise[M][N] = Tot_Avg #assigns to element (M,N) or DarkNoise the Tot_Avg for the same (M,N) settings
 
-def configure_exposure(cam, M): #set M to proper us value
+def configure_exposure(cam, exp): #exp is expusre time defined by loop iteration and user settigns
     """
      This function configures a custom exposure time. Automatic exposure is turned
      off in order to allow for the customization, and then the custom setting is
@@ -116,7 +121,7 @@ def configure_exposure(cam, M): #set M to proper us value
             return False
 
         # Ensure desired exposure time does not exceed the maximum
-        exposure_time_to_set = M
+        exposure_time_to_set = exp
         exposure_time_to_set = min(cam.ExposureTime.GetMax(), exposure_time_to_set)
         cam.ExposureTime.SetValue(exposure_time_to_set)
         #print ('Shutter time set to ' + str(exposure_time_to_set) + 's us...\n') 
@@ -127,7 +132,7 @@ def configure_exposure(cam, M): #set M to proper us value
 
     return result
 
-def configure_gain(nodemap, N):
+def configure_gain(nodemap, gain):
     try:
         result = True
     
@@ -135,7 +140,7 @@ def configure_gain(nodemap, N):
         node_gain = PySpin.CFloatPtr(nodemap.GetNode('Gain'))
 
         #set value
-        node_gain.SetValue(N)
+        node_gain.SetValue(gain)
 
                 # Retrieve float value
         value = node_gain.GetValue()
@@ -152,17 +157,17 @@ def configure_gain(nodemap, N):
 
 #method to change through seetings. 
 #make sure to call the correct variables to set these values on the camera
-def settings (nodemap, cam, M, N):
+def settings (nodemap, cam, j, k):
     result = True 
 
-	#setting M th exposure time in us
+	#setting exp the exposure time in us
 	#4us is minimum. stops just before .01 seconds
-    M = 4 + M*10
-    result &= configure_exposure(cam, M)
+    exp = 4 + j*m
+    result &= configure_exposure(cam, exp)
 	
 	#setting gain value
-    N = N * .1 #(0-30)
-    result &= configure_gain(nodemap, N)
+    gain = k * n #(0-30)
+    result &= configure_gain(nodemap, gain)
 
     return result
 
@@ -271,7 +276,7 @@ def grab_next_image_by_trigger(nodemap, cam):
 
     return result
 
-def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number, N is gain level 
+def acquire_images(cam, nodemap, nodemap_tldevice, j, k): #j is exposure number, k is gain level 
     """
     This function acquires saves images from a device.
     Please see Acquisition example for more in-depth comments on acquiring images.
@@ -288,28 +293,6 @@ def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number,
     #print('*** IMAGE ACQUISITION ***\n')
     try:
         result = True
-        
-        # Set acquisition mode to continuous
-        # In order to access the node entries, they have to be casted to a pointer type (CEnumerationPtr here)
-        #node_acquisition_mode = PySpin.CEnumerationPtr(nodemap.GetNode('AcquisitionMode'))
-        #if not PySpin.IsAvailable(node_acquisition_mode) or not PySpin.IsWritable(node_acquisition_mode):
-        #    print('Unable to set acquisition mode to continuous (enum retrieval). Aborting...')
-        #    return False
-
-        # Retrieve entry node from enumeration node
-        #node_acquisition_mode_continuous = node_acquisition_mode.GetEntryByName('Continuous')
-        #if not PySpin.IsAvailable(node_acquisition_mode_continuous) or not PySpin.IsReadable(
-        #        node_acquisition_mode_continuous):
-        #    print('Unable to set acquisition mode to continuous (entry retrieval). Aborting...')
-        #    return False
-
-        # Retrieve integer value from entry node
-        #acquisition_mode_continuous = node_acquisition_mode_continuous.GetValue()
-
-        # Set integer value from entry node as new value of enumeration node
-        #node_acquisition_mode.SetIntValue(acquisition_mode_continuous)		
-       
-        #print('Acquisition mode set to continuous...')
 
         #  Begin acquiring images
         cam.BeginAcquisition()
@@ -354,8 +337,8 @@ def acquire_images(cam, nodemap, nodemap_tldevice, M, N): #M is exposure number,
         #then average of pixel n will be compared to make sure all n pixels are behaving 
         #the same at which point all averages of n pixels will be averaged to give the dark noise 
         #value for the M/N Exposure/Gain settings configureation
-        cam.EndAcquisition()  #KL_758   
-        PixelPoints(picList,M,N)    
+        cam.EndAcquisition()  #KL_758 :)
+        PixelPoints(picList,j,k)    
 
     except PySpin.SpinnakerException as ex:
         print('Error imgAcq: %s' % ex)
@@ -427,7 +410,7 @@ def print_device_info(nodemap):
 
     return result
 
-def run_single_camera(cam,M,N):
+def run_single_camera(cam,j,k):
     """
     This function acts as the body of the example; please see NodeMapInfo example
     for more in-depth comments on setting up cameras.
@@ -451,13 +434,17 @@ def run_single_camera(cam,M,N):
         # Retrieve GenICam nodemap
         nodemap = cam.GetNodeMap()
 
+        #configure settings
+        if settings(nodemap, cam, j, k) is False: 
+            return False
+
         # Configure trigger
         if configure_trigger(cam) is False:
             return False
 
         # Acquire images 
         #every time this is called take 100 images with M and N settings (how many pixels)
-        result &= acquire_images(cam, nodemap, nodemap_tldevice, M, N) 
+        result &= acquire_images(cam, nodemap, nodemap_tldevice, j, k) 
 		
         # Reset trigger
         result &= reset_trigger(nodemap)
@@ -529,9 +516,9 @@ def main():
     for i, cam in enumerate(cam_list):
 
         print('Running example for camera %d...' % i)
-        for M in range(999):
-            for N in range(300):
-                result &= run_single_camera(cam,M,N) #this loops through all M and N, for each combination saving data from NUM_Images number of intensity images
+        for j in range(M):
+            for k in range(N):
+                result &= run_single_camera(cam,j,k) #this loops through all M and N, for each combination saving data from NUM_Images number of intensity images
         print('Camera %d example complete... \n' % i)
 
     # Release reference to camera
