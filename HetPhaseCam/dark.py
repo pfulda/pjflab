@@ -11,7 +11,7 @@ from PIL import Image
 from numpy import array, empty, ravel, where, ones, reshape, arctan2
 from matplotlib.pyplot import plot, draw, show, ion
 
-#user input variables 
+#user input variables
 NUM_IMAGES = int(input("Please enter the number of images you would like: "))  # number of images to grab
 M = int(input("Enter the size of the exposure settings you would like: ")) #number of exposure settings
 m = int(input("Enter the slope or step increment of the exposure you would like: "))
@@ -27,9 +27,6 @@ print('Directory created:', Folder_Name)
 #rather than making 3D matrix with (M,N,I), instead one dependent var array
 #and have the M and N arrays so that we are plotting in 3D two ind vs one dep
 #array of size M*N=(#ofexposuresettings)*(#ofgainsettings)
-DarkNoise = numpy.empty((M,N))
-#KL: see https://stackoverflow.com/questions/6667201/how-to-define-a-two-dimensional-array-in-python
-
 #global indices for interrogated pixel grid (coming from pjflab file 'Generation_of_Pixel_Array.ipynb')
 Array_PixID = [ 21640,  21720,  21800,  21880,  21960,  22040,  22120,  22200,
         22280,  64840,  64920,  65000,  65080,  65160,  65240,  65320,
@@ -42,25 +39,49 @@ Array_PixID = [ 21640,  21720,  21800,  21880,  21960,  22040,  22120,  22200,
        324120, 324200, 324280, 324360, 324440, 324520, 324600, 324680,
        367240, 367320, 367400, 367480, 367560, 367640, 367720, 367800,
        367880]
+DarkNoise = numpy.empty((M,N,len(Array_PixID),NUM_IMAGES)) #address as DarkNoise[Mi][Ni][PixIDi][Framei]=Ivali #I.e. DarkNoise is 4D
+#KL: see https://stackoverflow.com/questions/6667201/how-to-define-a-two-dimensional-array-in-python
+
+
+
+def PixelPoints_hist(picList,j,k):
+#make histogram per pixel over 'ts' of NUM_IMAGES
+     folder_jk = "exp{}_gn{}".format(j,k) #SM1
+     subfolder = os.path.join(data_path,folder_jk) #SM1
+     os.mkdir(subfolder) #SM1
+     for g in range(numpy.size(Array_PixID)):
+          PixID = Array_PixID[g]  #single pixel per iteration on Array_PixID elements
+          IVal = [0]*NUM_IMAGES #creates new IVal array for each pixel probed
+          for h in range(NUM_IMAGES):
+              arr=numpy.ravel(numpy.array(picList[h])) #each iteration chooses different intensity image
+              IVal[h] = arr[PixID] #each element of IVal will get intensity values from same pixel per Array_PixID iteration
+        DarkNoise[j][k][g]=IVal #save entire Ival corresponding to (j,k,PixID) to DarkNoise
+
+        exp = 4 + j*m
+        gain = k * n #(0-30)
+        #Ival=numpy.ravel(numpy.array(Ival)) #turn to ravel np array then save #SM1
+        Ivalname = subfolder + '/exp{}_gn{}_PixID{}.npy'.format(exp,gain,g) #SM1, saved under actual values
+        numpy.save(Ivalname,IVal) #SM1 #SM1 is redundant mechanism if we are successful with 4D DarkNoise
+
+
 
 
 #method for checking the pixel value of images
-#Power Spectral Desnsity !!!! 
-def PixelPoints (picList,j,k): #picList will be list of unraveled numpy array of intensity values. j and k are paramater space
+def PixelPoints(picList,j,k): #picList will be list of unraveled numpy array of intensity values. j and k are paramater space
 
 
     #empty array which will hold avg intensity value over NUM_IMAGES per PIXID
     Avg_Array = numpy.empty(numpy.size(Array_PixID))
 
-    #figure out proper way to use time series for Power Spectral Density 
-    for j in range(numpy.size(Array_PixID)):
-        PixID = Array_PixID[j]  #single pixel per iteration on Array_PixID elements
+    #figure out proper way to use time series for Power Spectral Density
+    for g in range(numpy.size(Array_PixID)):
+        PixID = Array_PixID[g]  #single pixel per iteration on Array_PixID elements
         IVal = [0]*NUM_IMAGES #creates new IVal array for each pixel probed
-        for i in range(NUM_IMAGES):
-            arr=numpy.ravel(numpy.array(picList[i])) #each iteration chooses different intensity image
-            IVal[i] = arr[PixID] #each element of IVal will get intensity values from same pixel per Array_PixID iteration
+        for h in range(NUM_IMAGES):
+            arr=numpy.ravel(numpy.array(picList[h])) #each iteration chooses different intensity image
+            IVal[h] = arr[PixID] #each element of IVal will get intensity values from same pixel per Array_PixID iteration
         Avg_IV = numpy.mean(IVal) #averages all NUM_IMAGES elements in IVal to a single value
-        Avg_Array[j] = Avg_IV #new avgd intensity added to Avg_Array per PixID iterated through
+        Avg_Array[g] = Avg_IV #new avgd intensity added to Avg_Array per PixID iterated through
 
     Tot_Avg = numpy.mean(Avg_Array) #Averages all 81 elements of Avg_Array (i.e. 81 pixels) for avg intensity over sensor of a given (M,N)
 
@@ -127,7 +148,7 @@ def configure_exposure(cam, exp): #exp is expusre time defined by loop iteration
         exposure_time_to_set = exp
         exposure_time_to_set = min(cam.ExposureTime.GetMax(), exposure_time_to_set)
         cam.ExposureTime.SetValue(exposure_time_to_set)
-        #print ('Shutter time set to ' + str(exposure_time_to_set) + 's us...\n') 
+        #print ('Shutter time set to ' + str(exposure_time_to_set) + 's us...\n')
 
     except PySpin.SpinnakerException as ex:
         print ('Error: %s') % ex
@@ -156,7 +177,7 @@ def configure_gain(nodemap,cam,gain):
         gain_to_set = gain
         gain_to_set = min(cam.Gain.GetMax(), gain_to_set)
         cam.Gain.SetValue(gain_to_set)
-        print ('Gain set to ' + str(gain_to_set) + ' dB...\n') 
+        print ('Gain set to ' + str(gain_to_set) + ' dB...\n')
 
     except PySpin.SpinnakerException as ex:
         print ('Error: ') % ex
@@ -165,16 +186,17 @@ def configure_gain(nodemap,cam,gain):
     return result
 
 
-#method to change through seetings. 
+#method to change through setings.
 #make sure to call the correct variables to set these values on the camera
-def settings (nodemap, cam, j, k):
-    result = True 
+#return exp and gain value 
+def settings(nodemap, cam, j, k):
+    result = True
 
 	#setting exp the exposure time in us
-	#4us is minimum. stops just before .01 seconds
+	#4us is minimum. 
     exp = 4 + j*m
     result &= configure_exposure(cam, exp)
-	
+
 	#setting gain value
     gain = k * n #(0-30)
     result &= configure_gain(nodemap,cam,gain)
@@ -182,11 +204,11 @@ def settings (nodemap, cam, j, k):
     return result
 
 
-#Hardware trigger... 
+#Hardware trigger...
 class TriggerType:
-    HARDWARE = 2 
+    HARDWARE = 2
 
-CHOSEN_TRIGGER = TriggerType.HARDWARE    
+CHOSEN_TRIGGER = TriggerType.HARDWARE
 
 #method to configure hardware trigger to apropriate source
 def configure_trigger(cam):
@@ -204,7 +226,7 @@ def configure_trigger(cam):
 
     print('*** CONFIGURING TRIGGER ***\n')
 
-    
+
 
     try:
         # Ensure trigger mode off
@@ -234,7 +256,7 @@ def configure_trigger(cam):
             return False
 
         if CHOSEN_TRIGGER == TriggerType.HARDWARE: #Should alays be true
-            node_trigger_source_hardware = node_trigger_source.GetEntryByName('Line3') 
+            node_trigger_source_hardware = node_trigger_source.GetEntryByName('Line3')
             if not PySpin.IsAvailable(node_trigger_source_hardware) or not PySpin.IsReadable(
                     node_trigger_source_hardware):
                 print('Unable to set trigger source (enum entry retrieval). Aborting...')
@@ -278,15 +300,15 @@ def grab_next_image_by_trigger(nodemap, cam):
         # When an image is retrieved, it is plucked from the stream.
 
         if CHOSEN_TRIGGER == TriggerType.HARDWARE:
-            a = 2 #will this make it happy? (CP) update still dont get this but it works 
-			
+            a = 2 #will this make it happy? (CP) update still dont get this but it works
+
     except PySpin.SpinnakerException as ex:
         print('Error GNIBT: %s' % ex)
         return False
 
     return result
 
-def acquire_images(cam, nodemap, nodemap_tldevice, j, k): #j is exposure number, k is gain level 
+def acquire_images(cam, nodemap, nodemap_tldevice, j, k): #j is exposure number, k is gain level
     """
     This function acquires saves images from a device.
     Please see Acquisition example for more in-depth comments on acquiring images.
@@ -308,11 +330,11 @@ def acquire_images(cam, nodemap, nodemap_tldevice, j, k): #j is exposure number,
         cam.BeginAcquisition()
 
         #print('Acquiring images...')
-						
-		#matrix to collect images 
+
+		#matrix to collect images
         print('')
         picList = [] #picList is local so it should have to be cleared every time running acquire images
-        
+
         # Retrieve, convert, and save images
         # image number specified and iterated through for each exposure/gain configuration
         for i in range(NUM_IMAGES):
@@ -330,25 +352,25 @@ def acquire_images(cam, nodemap, nodemap_tldevice, j, k): #j is exposure number,
 
                 else:
                     image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
-					
+
 					#add to piclist
                     imgarray = image_converted.GetNDArray()
-                    picList.append(imgarray) #array of the pixel values of each individual image 
-					
-					#  Release image 
-                    image_result.Release() 	
-        
+                    picList.append(imgarray) #array of the pixel values of each individual image
+
+					#  Release image
+                    image_result.Release()
+
             except PySpin.SpinnakerException as ex:
                 print('Error image acq: %s' % ex)
                 return False
 
-        #now that picList is populated with NUM_Images we send it to 
+        #now that picList is populated with NUM_Images we send it to
         #pixel points where n pixels will be averaged throughput all images
-        #then average of pixel n will be compared to make sure all n pixels are behaving 
-        #the same at which point all averages of n pixels will be averaged to give the dark noise 
+        #then average of pixel n will be compared to make sure all n pixels are behaving
+        #the same at which point all averages of n pixels will be averaged to give the dark noise
         #value for the M/N Exposure/Gain settings configureation
         cam.EndAcquisition()  #KL_758 :)
-        PixelPoints(picList,j,k)    
+        PixelPoints_hist(picList,j,k)
 
     except PySpin.SpinnakerException as ex:
         print('Error imgAcq: %s' % ex)
@@ -359,7 +381,7 @@ def acquire_images(cam, nodemap, nodemap_tldevice, j, k): #j is exposure number,
 def reset_trigger(nodemap):
     """
     This function returns the camera to a normal state by turning off trigger mode.
-  
+
     :param nodemap: Transport layer device nodemap.
     :type nodemap: INodeMap
     :returns: True if successful, False otherwise.
@@ -445,17 +467,17 @@ def run_single_camera(cam,j,k):
         nodemap = cam.GetNodeMap()
 
         #configure settings
-        if settings(nodemap, cam, j, k) is False: 
+        if settings(nodemap, cam, j, k) is False:
             return False
 
         # Configure trigger
         if configure_trigger(cam) is False:
             return False
 
-        # Acquire images 
+        # Acquire images
         #every time this is called take 100 images with M and N settings (how many pixels)
-        result &= acquire_images(cam, nodemap, nodemap_tldevice, j, k) 
-		
+        result &= acquire_images(cam, nodemap, nodemap_tldevice, j, k)
+
         # Reset trigger
         result &= reset_trigger(nodemap)
 
@@ -544,10 +566,12 @@ def main():
 
     # Release system instance
     system.ReleaseInstance()
-    
-    #save 2D array
-    name = data_path + '.npy'
-    numpy.save(name,DarkNoise)      
+
+    #save 4D array
+
+    #DarkNoise_name = data_path + 'DarkNoise.npy'
+    DarkNoise_name = os.path.join(data_path,Folder_Name)
+    numpy.save(DarkNoise_name,DarkNoise)
     print('DarkNoise is saved, booo-yaaaaaaaaa')
 
     input('Done! Press Enter to exit...')
