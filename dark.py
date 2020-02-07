@@ -27,6 +27,9 @@ print('Directory created:', Folder_Name)
 #rather than making 3D matrix with (M,N,I), instead one dependent var array
 #and have the M and N arrays so that we are plotting in 3D two ind vs one dep
 #array of size M*N=(#ofexposuresettings)*(#ofgainsettings)
+DarkNoise = numpy.empty((M,N,len(Array_PixID),NUM_IMAGES)) #address as DarkNoise[Mi][Ni][PixIDi][Framei]=Ivali #I.e. DarkNoise is 4D
+#KL: see https://stackoverflow.com/questions/6667201/how-to-define-a-two-dimensional-array-in-python
+
 #global indices for interrogated pixel grid (coming from pjflab file 'Generation_of_Pixel_Array.ipynb')
 Array_PixID = [ 21640,  21720,  21800,  21880,  21960,  22040,  22120,  22200,
         22280,  64840,  64920,  65000,  65080,  65160,  65240,  65320,
@@ -39,12 +42,8 @@ Array_PixID = [ 21640,  21720,  21800,  21880,  21960,  22040,  22120,  22200,
        324120, 324200, 324280, 324360, 324440, 324520, 324600, 324680,
        367240, 367320, 367400, 367480, 367560, 367640, 367720, 367800,
        367880]
-DarkNoise = numpy.empty((M,N,len(Array_PixID),NUM_IMAGES)) #address as DarkNoise[Mi][Ni][PixIDi][Framei]=Ivali #I.e. DarkNoise is 4D
-#KL: see https://stackoverflow.com/questions/6667201/how-to-define-a-two-dimensional-array-in-python
 
-
-
-def PixelPoints_hist(picList,j,k):
+def PixelPoints_hist(picList,j,k)
 #make histogram per pixel over 'ts' of NUM_IMAGES
      folder_jk = "exp{}_gn{}".format(j,k) #SM1
      subfolder = os.path.join(data_path,folder_jk) #SM1
@@ -53,20 +52,18 @@ def PixelPoints_hist(picList,j,k):
           PixID = Array_PixID[g]  #single pixel per iteration on Array_PixID elements
           IVal = [0]*NUM_IMAGES #creates new IVal array for each pixel probed
           for h in range(NUM_IMAGES):
-              arr=numpy.ravel(numpy.array(picList[h])) #each iteration chooses different intensity image
+              arr=np.ravel(numpy.array(picList[h])) #each iteration chooses different intensity image
               IVal[h] = arr[PixID] #each element of IVal will get intensity values from same pixel per Array_PixID iteration
-        DarkNoise[j][k][g]=IVal #save entire Ival corresponding to (j,k,PixID) to DarkNoise
-
-        exp = 4 + j*m
-        gain = k * n #(0-30)
-        #Ival=numpy.ravel(numpy.array(Ival)) #turn to ravel np array then save #SM1
-        Ivalname = subfolder + '/exp{}_gn{}_PixID{}.npy'.format(exp,gain,g) #SM1, saved under actual values
-        numpy.save(Ivalname,IVal) #SM1 #SM1 is redundant mechanism if we are successful with 4D DarkNoise
+          DarkNoise[j][k][g]=IVal #save entire Ival corresponding to (j,k,PixID) to DarkNoise
+          Ival=np.ravel(numpy.array(Ival)) #turn to ravel np array then save #SM1
+          Ivalname = subfolder + '/exp{}_gn{}_PixID{}.npy'.format(j,k,g) #SM1
+          np.save(Ivalname,Ival) #SM1 #SM1 is redundant mechanism if we are successful with 4D DarkNoise
 
 
 
 
 #method for checking the pixel value of images
+#Power Spectral Desnsity !!!!
 def PixelPoints(picList,j,k): #picList will be list of unraveled numpy array of intensity values. j and k are paramater space
 
 
@@ -188,12 +185,11 @@ def configure_gain(nodemap,cam,gain):
 
 #method to change through setings.
 #make sure to call the correct variables to set these values on the camera
-#return exp and gain value 
 def settings(nodemap, cam, j, k):
     result = True
 
 	#setting exp the exposure time in us
-	#4us is minimum. 
+	#4us is minimum. stops just before .01 seconds
     exp = 4 + j*m
     result &= configure_exposure(cam, exp)
 
@@ -569,9 +565,8 @@ def main():
 
     #save 4D array
 
-    #DarkNoise_name = data_path + 'DarkNoise.npy'
-    DarkNoise_name = os.path.join(data_path,Folder_Name)
-    numpy.save(DarkNoise_name,DarkNoise)
+    DarkNoise_name = data_path + 'DarkNoise.npy'
+    np.save(DarkNoise_name,DarkNoise)
     print('DarkNoise is saved, booo-yaaaaaaaaa')
 
     input('Done! Press Enter to exit...')
