@@ -46,21 +46,20 @@ DarkNoise = numpy.empty((M,N,len(Array_PixID),NUM_IMAGES)) #address as DarkNoise
 
 def PixelPoints_hist(picList,j,k):
 #make histogram per pixel over 'ts' of NUM_IMAGES
-     folder_jk = "exp{}_gn{}".format(j,k) #SM1
+     expJ = 4 + j*m
+     gainN = k * n #(0-30)
+     folder_jk = "exp{}_gn{}".format(expJ,gainN) #SM1
      subfolder = os.path.join(data_path,folder_jk) #SM1
      os.mkdir(subfolder) #SM1
      for g in range(numpy.size(Array_PixID)):
-          PixID = Array_PixID[g]  #single pixel per iteration on Array_PixID elements
-          IVal = [0]*NUM_IMAGES #creates new IVal array for each pixel probed
-          for h in range(NUM_IMAGES):
-              arr=numpy.ravel(numpy.array(picList[h])) #each iteration chooses different intensity image
-              IVal[h] = arr[PixID] #each element of IVal will get intensity values from same pixel per Array_PixID iteration
-        DarkNoise[j][k][g]=IVal #save entire Ival corresponding to (j,k,PixID) to DarkNoise
-
-        exp = 4 + j*m
-        gain = k * n #(0-30)
+        PixID = Array_PixID[g]  #single pixel per iteration on Array_PixID elements
+        IVal = [0]*NUM_IMAGES #creates new IVal array for each pixel probed
+        for h in range(NUM_IMAGES):
+            arr=numpy.ravel(numpy.array(picList[h])) #each iteration chooses different intensity image
+            IVal[h] = arr[PixID] #each element of IVal will get intensity values from same pixel per Array_PixID iteration
+            DarkNoise[j][k][g][h]=IVal[h] #save entire Ival corresponding to (j,k,PixID) to DarkNoise
         #Ival=numpy.ravel(numpy.array(Ival)) #turn to ravel np array then save #SM1
-        Ivalname = subfolder + '/exp{}_gn{}_PixID{}.npy'.format(exp,gain,g) #SM1, saved under actual values
+        Ivalname = subfolder + '/exp{}_gn{}_PixID{}.npy'.format(expJ,gainN,g) #SM1, saved under actual values
         numpy.save(Ivalname,IVal) #SM1 #SM1 is redundant mechanism if we are successful with 4D DarkNoise
 
 
@@ -146,7 +145,7 @@ def configure_exposure(cam, exp): #exp is expusre time defined by loop iteration
 
         # Ensure desired exposure time does not exceed the maximum
         exposure_time_to_set = exp
-        exposure_time_to_set = min(cam.ExposureTime.GetMax(), exposure_time_to_set)
+        exposure_time_to_set = min(cam.ExposureTime.GetMax(), exposure_time_to_set) #if same setting been used twice return false
         cam.ExposureTime.SetValue(exposure_time_to_set)
         #print ('Shutter time set to ' + str(exposure_time_to_set) + 's us...\n')
 
@@ -193,12 +192,13 @@ def settings(nodemap, cam, j, k):
     result = True
 
 	#setting exp the exposure time in us
-	#4us is minimum. 
+	#4us is minimum. (capture frequency is HARD max (25,000us))
+    #add initial offset
     exp = 4 + j*m
     result &= configure_exposure(cam, exp)
 
-	#setting gain value
-    gain = k * n #(0-30)
+	#setting gain value ( change to float)
+    gain = k * n 
     result &= configure_gain(nodemap,cam,gain)
 
     return result
@@ -351,7 +351,7 @@ def acquire_images(cam, nodemap, nodemap_tldevice, j, k): #j is exposure number,
                     print('Image incomplete with image status %d ...' % image_result.GetImageStatus())
 
                 else:
-                    image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
+                    image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR) #Do not use Mono12, not compatible with conversion
 
 					#add to piclist
                     imgarray = image_converted.GetNDArray()
@@ -504,6 +504,7 @@ def main():
     # Since this application saves images in the current folder
     # we must ensure that we have permission to write to this folder.
     # If we do not have permission, fail right away.
+    time.sleep(10) #delay added in order to exit lab without too much hurry
     try:
         test_file = open('test.txt', 'w+')
     except IOError:
@@ -515,7 +516,8 @@ def main():
     os.remove(test_file.name)
 
     result = True
-
+    
+    #time.sleep(10)
     # Retrieve singleton reference to system object
     system = PySpin.System.GetInstance()
 
