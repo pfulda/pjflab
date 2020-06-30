@@ -1,0 +1,3 @@
+This folder is meant to store small and important computed output of simulations or other scripts from the HPC project. 
+For instance, the first saved item is an html video demonstrating the performance of the MCMC optimization method on the 2D toy model parameter space. 
+I needed an online repository to store the video so that I could include it in the actual camera MCMC optimization script. 
