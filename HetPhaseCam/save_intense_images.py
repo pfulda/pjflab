@@ -1,17 +1,11 @@
-#  Live_Phase_Maps.py is based off of the example code Trigger.py.
-#  Live_Phase_Maps.py records a user specified amount of images and displays
-#  live phase maps.
+# Will it be quicker to save images or save arrays
 
+#what needs to be imported?
 import os
 import PySpin
 import numpy
-import matplotlib.pyplot as plt
-import time
 import argparse
-from PIL import Image
-from numpy import array, empty, ravel, where, ones, reshape, arctan2
-from matplotlib.pyplot import plot, draw, show, ion
-
+from numpy import array
 
 parser = argparse.ArgumentParser(description="Initialize HPC settings")
 
@@ -29,6 +23,15 @@ exp = args.exp
 gain = args.gain
 NUM_IMAGES = args.NI
 phase = args.PSA #this variable currently serves no purpuse
+
+Folder_Name = input("Enter the name of the folder you wish to save the images too\nthis will also be the beginning of the file name\n(Be careful to not overwrite another folder within\nthe Data directory by using the same name): ")
+
+Data_dir='C:/Users/localadmin/Documents/pjflab/HetPhaseCam/Data'
+data_path = os.path.join(Data_dir,Folder_Name)
+os.mkdir(data_path)
+print('Directory created:', Folder_Name)
+
+
 
 
 def configure_exp_gain(cam,exp,gain):
@@ -84,6 +87,7 @@ def configure_exp_gain(cam,exp,gain):
             return False
         node_ADC.SetIntValue(node_ADC_setting.GetValue())
 
+
         #setting the pixel format
         node_pixel_format = PySpin.CEnumerationPtr(nodemap.GetNode('PixelFormat'))
         if PySpin.IsAvailable(node_pixel_format) and PySpin.IsWritable(node_pixel_format):
@@ -119,9 +123,7 @@ def configure_exp_gain(cam,exp,gain):
 
 
 class TriggerType:
-    #SOFTWARE = 1
     HARDWARE = 2
-
 
 CHOSEN_TRIGGER = TriggerType.HARDWARE
 
@@ -140,6 +142,7 @@ def configure_trigger(cam):
     result = True
 
     print('*** CONFIGURING TRIGGER ***\n')
+
 
 
     try:
@@ -170,8 +173,9 @@ def configure_trigger(cam):
             return False
 
         if CHOSEN_TRIGGER == TriggerType.HARDWARE:
-            node_trigger_source_hardware = node_trigger_source.GetEntryByName('Line3') #Line 3 is the 40 Hzclock genrator signal
-
+            node_trigger_source_hardware = node_trigger_source.GetEntryByName('Line3') #are we at 40Hz???
+			#THERE IS NO METHOD FOR TRIGGER ACTIVATION, NOT SURE WHAT IS ACTUALLY CAUSING THE TRIGGER...
+			#rising edge, level high???
             if not PySpin.IsAvailable(node_trigger_source_hardware) or not PySpin.IsReadable(
                     node_trigger_source_hardware):
                 print('Unable to set trigger source (enum entry retrieval). Aborting...')
@@ -189,6 +193,7 @@ def configure_trigger(cam):
         node_trigger_mode.SetIntValue(node_trigger_mode_on.GetValue())
         print('Trigger mode turned back on...')
 
+
     except PySpin.SpinnakerException as ex:
         print('Error: %s' % ex)
         return False
@@ -196,29 +201,33 @@ def configure_trigger(cam):
     return result
 
 
-def grab_next_image_by_trigger(nodemap, cam):  #is this necessary if we don't have a software trigger???
-    """
-    This function acquires an image by executing the trigger node.
 
-    :param cam: Camera to acquire images from.
-    :param nodemap: Device nodemap.
-    :type cam: CameraPtr
-    :type nodemap: INodeMap
-    :return: True if successful, False otherwise.
-    :rtype: bool
+def grab_next_image_by_trigger(nodemap, cam):  # not sure what this does, but its working so it will be left
     """
+		This function acquires an image by executing the trigger node.
+
+		:param cam: Camera to acquire images from.
+		:param nodemap: Device nodemap.
+		:type cam: CameraPtr
+		:type nodemap: INodeMap
+		:return: True if successful, False otherwise.
+		:rtype: bool
+    """
+
     try:
         result = True
-        # Use trigger to capture image
-        # The software trigger only feigns being executed by the Enter key;
-        # what might not be immediately apparent is that there is not a
-        # continuous stream of images being captured; in other examples that
-        # acquire images, the camera captures a continuous stream of images.
-        # When an image is retrieved, it is plucked from the stream.
+			# Use trigger to capture image
+			# The software trigger only feigns being executed by the Enter key;
+			# what might not be immediately apparent is that there is not a
+			# continuous stream of images being captured; in other examples that
+			# acquire images, the camera captures a continuous stream of images.
+			# When an image is retrieved, it is plucked from the stream.
 
 
         if CHOSEN_TRIGGER == TriggerType.HARDWARE:
-            a = 2 #I do not understand the need for this but it works...
+			 	# don't need to see this every image
+				## print('Use the hardware to trigger image acquisition.')
+            a = 2 #will this make it happy? (CP)
 
     except PySpin.SpinnakerException as ex:
         print('Error: %s' % ex)
@@ -226,158 +235,20 @@ def grab_next_image_by_trigger(nodemap, cam):  #is this necessary if we don't ha
 
     return result
 
-def Novak_phase_no_mask(listo):
-    #phase of each pixel, assuming: list of five images read in, equally centered and sized
-    arr1 = numpy.ravel(numpy.array(listo[0],dtype='int'))
-    arr2 = numpy.ravel(numpy.array(listo[1],dtype='int')) #converts to numpy arrays for faster operation
-    arr3 = numpy.ravel(numpy.array(listo[2],dtype='int'))
-    arr4 = numpy.ravel(numpy.array(listo[3],dtype='int'))
-    arr5 = numpy.ravel(numpy.array(listo[4],dtype='int'))
-    phase = numpy.empty(388800)
 
-    p1 = arr1
-    p2 = arr2
-    p3 = arr3
-    p4 = arr4
-    p5 = arr5
-
-    den = 2*p3-p1-p5
-
-    A = p2-p4
-
-    B = p1-p5+10
-
-    num = numpy.sqrt(abs(4*A**2-B**2))
-
-    pm = numpy.sign(A)
-
-    pha = numpy.arctan2(pm*num,den)
-
-    phase = pha
-
-    phase = numpy.reshape(phase,(540,720))
-
-    return phase
-
-def Novak_phase(listo):
-    #phase of each pixel, assuming: list of five images read in, equally centered and sized
-    arr1 = numpy.ravel(numpy.array(listo[0],dtype='int'))
-    arr2 = numpy.ravel(numpy.array(listo[1],dtype='int')) #converts to numpy arrays for faster operation
-    arr3 = numpy.ravel(numpy.array(listo[2],dtype='int'))
-    arr4 = numpy.ravel(numpy.array(listo[3],dtype='int'))
-    arr5 = numpy.ravel(numpy.array(listo[4],dtype='int'))
-    phase = numpy.empty(388800)
-
-    mask = numpy.ones(388800,dtype=bool)
-
-    cuts = numpy.where(arr1 < 450)
-
-    mask[cuts] = False
-
-    p1 = arr1[mask]
-    p2 = arr2[mask]
-    p3 = arr3[mask]
-    p4 = arr4[mask]
-    p5 = arr5[mask]
-
-    den = 2*p3-p1-p5
-
-    A = p2-p4
-
-    B = p1-p5
-
-    num = numpy.sqrt(abs(4*A**2-B**2))
-
-    pm = numpy.sign(A)
-
-    pha = numpy.arctan2(pm*num,den)
-
-    phase[~mask] = 0
-    phase[mask] = pha
-
-    phase = numpy.reshape(phase,(540,720))
-
-    return phase
-
-def fourpointphase(listo):
-    #phase of each pixel, assuming: list of four images read in, equally centered and sized
-    arr1 = numpy.ravel(numpy.array(listo[0],dtype='int'))
-    arr2 = numpy.ravel(numpy.array(listo[1],dtype='int')) #converts to numpy arrays for faster operation
-    arr3 = numpy.ravel(numpy.array(listo[2],dtype='int'))
-    arr4 = numpy.ravel(numpy.array(listo[3],dtype='int'))
-
-    phase = numpy.empty(388800)
-
-    mask = numpy.ones(388800,dtype=bool)
-
-    cuts = numpy.where(arr1 < 450) #12 bit arrays have a factor of 16 for some reason
-
-    mask[cuts] = False
-
-    p1 = arr1[mask]
-    p2 = arr2[mask]
-    p3 = arr3[mask]
-    p4 = arr4[mask]
-
-    num = p4 - p2
-    den = p1 - p3
-    pha = numpy.arctan2(num,den)
-
-    phase[~mask] = 0
-    phase[mask] = pha
-
-    phase = numpy.reshape(phase,(540,720))
-
-    return phase
-
-def carre_phase(listo):
-    #phase of each pixel, assuming: list of four images read in, equally centered and sized
-    arr1 = numpy.ravel(numpy.array(listo[0],dtype='int'))
-    arr2 = numpy.ravel(numpy.array(listo[1],dtype='int')) #converts to numpy arrays for faster operation
-    arr3 = numpy.ravel(numpy.array(listo[2],dtype='int'))
-    arr4 = numpy.ravel(numpy.array(listo[3],dtype='int'))
-
-    phase = numpy.empty(388800)
-
-    mask = numpy.ones(388800,dtype=bool)
-
-    cuts = numpy.where(arr1 < 450)
-
-    mask[cuts] = False
-
-    p1 = arr1[mask]
-    p2 = arr2[mask]
-    p3 = arr3[mask]
-    p4 = arr4[mask]
-
-    B = p1-p4
-    A = p2-p3
-    num = (A+B) * (3*A-B)
-    num = numpy.sqrt(abs(num))
-    pm = numpy.sign(A)
-    den = p2 + p3 - p1 - p4
-    pha = numpy.arctan2(pm*num,den)
-
-    phase[~mask] = 0
-    phase[mask] = pha
-
-    phase = numpy.reshape(phase,(540,720))
-
-    return phase
-
-def acquire_images(cam, nodemap, nodemap_tldevice, NUM_IMAGES):
+def acquire_images(cam, nodemap, nodemap_tldevice,NUM_IMAGES,data_path,Folder_Name):
     """
-    This function acquires and saves 10 images from a device.
-    Please see Acquisition example for more in-depth comments on acquiring images.
+		This function acquires and saves 10 images from a device.
+		Please see Acquisition example for more in-depth comments on acquiring images.
 
-    :param cam: Camera to acquire images from.
-    :param nodemap: Device nodemap.
-    :param nodemap_tldevice: Transport layer device nodemap.
-    :type cam: CameraPtr
-    :type nodemap: INodeMap
-    :type nodemap_tldevice: INodeMap
-    :return: True if successful, False otherwise.
-    :rtype: bool
+		:param cam: Camera to acquire images from.
+		:param nodemap: Device nodemap.
+		:param nodemap_tldevice: Transport layer device nodemap.
+		:type cam: CameraPtr
+		:type nodemap: INodeMap
+		:type nodemap_tldevice: INodeMap
+		:return: True if successful, False otherwise.
+		:rtype: bool
     """
 
     print('*** IMAGE ACQUISITION ***\n')
@@ -411,6 +282,7 @@ def acquire_images(cam, nodemap, nodemap_tldevice, NUM_IMAGES):
 
         print('Acquiring images...')
 
+
         #  Retrieve device serial number for filename
         #
         #  *** NOTES ***
@@ -424,11 +296,9 @@ def acquire_images(cam, nodemap, nodemap_tldevice, NUM_IMAGES):
             print('Device serial number retrieved as %s...' % device_serial_number)
 
 
-
         print('')
         picList = []
-        phaseList = []
-
+        timelist = []
 
         # Retrieve, convert, and save images
         for i in range(NUM_IMAGES):
@@ -446,7 +316,19 @@ def acquire_images(cam, nodemap, nodemap_tldevice, NUM_IMAGES):
 
                 else:
 
-                    #  Convert image to mono 12
+                    #  Print image information; height and width recorded in pixels
+                    #
+                    #  *** NOTES ***
+                    #  Images have quite a bit of available metadata including
+                    #  things such as CRC, image status, and offset values, to
+                    #  name a few.
+					#
+					#Don't need this right now (CP)
+                    ##width = image_result.GetWidth()
+                    ##height = image_result.GetHeight()
+                    ##print('Grabbed Image %d, width = %d, height = %d' % (i, width, height))
+
+                    #  Convert image to mono 8
                     #
                     #  *** NOTES ***
                     #  Images can be converted between pixel formats by using
@@ -456,44 +338,26 @@ def acquire_images(cam, nodemap, nodemap_tldevice, NUM_IMAGES):
                     #
                     #  When converting images, color processing algorithm is an
                     #  optional parameter.
-                    """
-                    TO DO:
-                    Change the pixel format to 12 bit.
-                    """
                     image_converted = image_result.Convert(PySpin.PixelFormat_Mono16, PySpin.HQ_LINEAR)
 
 					#add to piclist
                     imgarray = image_converted.GetNDArray()
-                    picList.append(imgarray)
+                    picList.append(imgarray) #save piclist
 
 
-					#  Release image
-                    image_result.Release()
-                    if i%4 == 0 and i > 0:
-                        if i%8 == 0:
-                            #there are other phase methods that can be run...
-                            faze = Novak_phase(picList) #Novak_phase_no_mask #Novak_phase #carre_phase #fourpointphase
-                            phaseList.append(faze)
-                            #print(faze.dtype)
-                            #print(numpy.shape(faze))
-                            plt.ion()
-                            plt.imshow(faze, cmap = 'jet')
-                            cbar = plt.colorbar()#
-                            plt.clim(vmin=-numpy.pi,vmax=numpy.pi)#
-                            cbar.set_label("Phase Shift (rad)")#
-                            plt.xlabel("Pixels(x)")
-                            plt.ylabel("Pixels(y)")
-                            #plt.xlim([300,500]) If a smaller image is wanted
-                            #plt.ylim([200,400])
-                            plt.pause(0.00001)
-                            plt.show()
-                            plt.clf()
 
-                        del picList[0:4]
+					#saving imgarray
+                    name = Folder_Name + '_%d' % i
+                    numpy.save('{}/{}'.format(data_path, name), imgarray)
+
+#Removed JPG saving process from original save_acquire on pjflab as of 12/16/2019 (kjl)
 
             except PySpin.SpinnakerException as ex:
                 print('Error: %s' % ex)
                 return False
+
+
+
 
         # End acquisition
         #
@@ -501,6 +365,8 @@ def acquire_images(cam, nodemap, nodemap_tldevice, NUM_IMAGES):
         #  Ending acquisition appropriately helps ensure that devices clean up
         #  properly and do not need to be power-cycled to maintain integrity.
         cam.EndAcquisition()
+
+
 
     except PySpin.SpinnakerException as ex:
         print('Error: %s' % ex)
@@ -610,7 +476,7 @@ def run_single_camera(cam):
             return False
 
         # Acquire images
-        result &= acquire_images(cam, nodemap, nodemap_tldevice, NUM_IMAGES)
+        result &= acquire_images(cam, nodemap, nodemap_tldevice,NUM_IMAGES,data_path,Folder_Name)
 
         # Reset trigger
         result &= reset_trigger(nodemap)
@@ -691,9 +557,6 @@ def main():
 
     # Clear camera list before releasing system
     cam_list.Clear()
-
-	# averaging method
-    #avg = Avg(picList, 160) ### 160 NUMBER OF IMAGES TO USE, SHOULD BE CONFIDENT NO BEAM stepping
 
     # Release system instance
     system.ReleaseInstance()
